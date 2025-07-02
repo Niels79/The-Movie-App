@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">The Movie App</string>
+    <string name="title_activity_main">The Movie App</string>
+    <string name="package_name">com.themovieapp.app</string>
+    <string name="custom_url_scheme">com.themovieapp.app</string>
+    <string name="server_client_id">57349082200-3e3g3et8lnvkqbp0kfrp9maalbjgbkcq.apps.googleusercontent.com</string>
+</resources>
