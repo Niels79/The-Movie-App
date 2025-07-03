@@ -1,7 +1,7 @@
 // FILE: src/context/AuthContext.tsx
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { auth, db } from '../services/firebase';
-import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithRedirect } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -44,30 +44,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [notification, setNotification] = useState('');
 
   useEffect(() => {
-    // CORRECTED: Initialize the plugin with options
-    if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize({
-        scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
-      });
-    }
-    
+    // This is the single, most reliable listener for auth changes.
+    // It fires on page load, after a redirect, and on sign-in/sign-out.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) { 
-        setLoading(false); 
-        setUserData(defaultUserData);
+      if (!currentUser) {
+        // If no user, we can stop loading immediately.
+        setLoading(false);
       }
     });
 
-    getRedirectResult(auth).catch((error) => {
-        console.error("Fout bij ophalen redirect result:", error);
-    });
-
+    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
+    // This effect syncs user data from Firestore ONLY when the user object is available.
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -76,6 +68,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         } else {
           setDoc(userDocRef, defaultUserData);
         }
+        // We stop loading only after we have the user's data.
         setLoading(false);
       });
       return () => unsubscribe();
