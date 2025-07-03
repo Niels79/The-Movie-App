@@ -1,7 +1,7 @@
 // FILE: src/context/AuthContext.tsx
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { auth, db } from '../services/firebase';
-import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithRedirect, getRedirectResult } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithPopup } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -44,23 +44,24 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [notification, setNotification] = useState('');
 
   useEffect(() => {
-    // This is the single, most reliable listener for auth changes.
-    // It fires on page load, after a redirect, and on sign-in/sign-out.
+    if (Capacitor.isNativePlatform()) {
+      GoogleAuth.initialize({
+        scopes: ['profile', 'email'],
+        grantOfflineAccess: true,
+      });
+    }
+    
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log("Auth state changed, user:", currentUser ? currentUser.uid : null);
       setUser(currentUser);
       if (!currentUser) {
-        // If no user, we can stop loading immediately.
         setLoading(false);
       }
     });
 
-    // Cleanup the listener when the component unmounts
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
-    // This effect syncs user data from Firestore ONLY when the user object is available.
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
@@ -69,7 +70,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         } else {
           setDoc(userDocRef, defaultUserData);
         }
-        // We stop loading only after we have the user's data.
         setLoading(false);
       });
       return () => unsubscribe();
@@ -77,26 +77,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   }, [user]);
 
   const login = async () => {
-    console.log("Login function called. Platform:", Capacitor.getPlatform());
-    setLoading(true);
     if (Capacitor.isNativePlatform()) {
       try {
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         await signInWithCredential(auth, credential);
-      } catch (error) { 
-        console.error("Native Google login fout:", error); 
-        setLoading(false);
-      }
+      } catch (error) { console.error("Native Google login fout:", error); }
     } else {
+      // Gebruik signInWithPopup voor de web-versie
       try {
-        console.log("Attempting web redirect...");
         const provider = new GoogleAuthProvider();
-        await signInWithRedirect(auth, provider);
-      } catch (error) { 
-        console.error("Web Google login fout:", error); 
-        setLoading(false);
-      }
+        await signInWithPopup(auth, provider);
+      } catch (error) { console.error("Web Google login fout:", error); }
     }
   };
 
