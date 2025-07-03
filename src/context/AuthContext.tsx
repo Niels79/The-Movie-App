@@ -1,7 +1,7 @@
 // FILE: src/context/AuthContext.tsx
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { auth, db } from '../services/firebase';
-import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithRedirect } from 'firebase/auth';
+import { onAuthStateChanged, signOut, type User, GoogleAuthProvider, signInWithCredential, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
@@ -47,6 +47,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     // This is the single, most reliable listener for auth changes.
     // It fires on page load, after a redirect, and on sign-in/sign-out.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log("Auth state changed, user:", currentUser ? currentUser.uid : null);
       setUser(currentUser);
       if (!currentUser) {
         // If no user, we can stop loading immediately.
@@ -76,17 +77,26 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   }, [user]);
 
   const login = async () => {
+    console.log("Login function called. Platform:", Capacitor.getPlatform());
+    setLoading(true);
     if (Capacitor.isNativePlatform()) {
       try {
         const googleUser = await GoogleAuth.signIn();
         const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
         await signInWithCredential(auth, credential);
-      } catch (error) { console.error("Native Google login fout:", error); }
+      } catch (error) { 
+        console.error("Native Google login fout:", error); 
+        setLoading(false);
+      }
     } else {
       try {
+        console.log("Attempting web redirect...");
         const provider = new GoogleAuthProvider();
         await signInWithRedirect(auth, provider);
-      } catch (error) { console.error("Web Google login fout:", error); }
+      } catch (error) { 
+        console.error("Web Google login fout:", error); 
+        setLoading(false);
+      }
     }
   };
 
