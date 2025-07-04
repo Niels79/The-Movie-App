@@ -1,16 +1,17 @@
 // FILE: src/pages/ListsPage.tsx
+
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 
+const allGenresLists = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Documentaire", "Drama", "Familie", "Fantasy", "Geschiedenis", "Horror", "Muziek", "Mysterie", "Romantiek", "Sciencefiction", "TV Film", "Thriller", "Oorlog", "Western"];
+
 const ListsPage: React.FC = () => {
     const { userData } = useAuth();
-    const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
-    const [isSeenListOpen, setIsSeenListOpen] = useState(false);
-
-    // Filters blijven ongewijzigd
     const [filterTerm, setFilterTerm] = useState('');
     const [genreFilter, setGenreFilter] = useState('');
+    const [isWatchlistOpen, setIsWatchlistOpen] = useState(false);
+    const [isSeenListOpen, setIsSeenListOpen] = useState(false);
 
     const filteredWatchlist = useMemo(() => {
         return userData.watchlist?.filter(movie => movie && movie.title.toLowerCase().includes(filterTerm.toLowerCase()))
@@ -22,10 +23,9 @@ const ListsPage: React.FC = () => {
                                .filter(item => genreFilter ? item.movie.genre.includes(genreFilter) : true) || [];
     }, [userData.seenList, filterTerm, genreFilter]);
 
-
     return (
-        <div className="text-white space-y-12">
-             <div className="mb-8 flex flex-col sm:flex-row gap-4">
+        <div className="text-white space-y-8">
+            <div className="mb-8 flex flex-col sm:flex-row gap-4">
                 <div className="relative w-full sm:w-2/3">
                     <input
                         type="text"
@@ -40,8 +40,16 @@ const ListsPage: React.FC = () => {
                         </button>
                     )}
                 </div>
-                {/* Genre filter dropdown (functionaliteit blijft) */}
+                <select 
+                    value={genreFilter} 
+                    onChange={e => setGenreFilter(e.target.value)} 
+                    className="w-full sm:w-1/3 p-4 bg-gray-800 border-2 border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                >
+                    <option value="">Alle Genres</option>
+                    {allGenresLists.map(genre => <option key={genre} value={genre}>{genre}</option>)}
+                </select>
             </div>
+
             <div>
                 <h2 onClick={() => setIsWatchlistOpen(!isWatchlistOpen)} className="cursor-pointer text-3xl font-bold mb-6 flex items-center select-none">
                     <span className={`transform transition-transform duration-200 ${isWatchlistOpen ? 'rotate-90' : ''}`}>►</span>
