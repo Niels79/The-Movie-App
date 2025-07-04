@@ -1,3 +1,4 @@
+
 // FILE: src/components/StarRating.tsx
 import React, { useState } from 'react';
 
