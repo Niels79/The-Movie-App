@@ -1,4 +1,5 @@
 // FILE: src/pages/SearchPage.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type Movie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
@@ -7,7 +8,7 @@ const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 const genreMap: { [key: number]: string } = { 28: "Actie", 12: "Avontuur", 16: "Animatie", 35: "Komedie", 80: "Misdaad", 99: "Documentaire", 18: "Drama", 10751: "Familie", 14: "Fantasy", 36: "Geschiedenis", 27: "Horror", 10402: "Muziek", 9648: "Mysterie", 10749: "Romantiek", 878: "Sciencefiction", 10770: "TV Film", 53: "Thriller", 10752: "Oorlog", 37: "Western" };
 
 const formatApiResults = (results: any[]): Movie[] => {
-    return results.filter(movie => movie.poster_path && movie.vote_count > 20).map(movie => ({
+    return results.filter(movie => movie && movie.poster_path && movie.vote_count > 20).map(movie => ({
         id: movie.id, title: movie.title, rating: movie.vote_average.toFixed(1),
         poster: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
         genre: movie.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
@@ -42,10 +43,11 @@ const SearchPage: React.FC = () => {
     };
 
     const moviesToShow = useMemo(() => {
-        const seenIds = new Set(userData.seenList.map(m => m.movie.id));
-        const watchlistIds = new Set(userData.watchlist.map(m => m.id));
-        const notInterestedIds = new Set(userData.notInterestedList.map(m => m.id));
-        return movies.filter(movie => !seenIds.has(movie.id) && !watchlistIds.has(movie.id) && !notInterestedIds.has(movie.id));
+        // CORRECTED: Added extra checks to ensure items exist before accessing their properties.
+        const seenIds = new Set(userData.seenList?.filter(m => m && m.movie).map(m => m.movie.id) || []);
+        const watchlistIds = new Set(userData.watchlist?.filter(m => m && m.id).map(m => m.id) || []);
+        const notInterestedIds = new Set(userData.notInterestedList?.filter(m => m && m.id).map(m => m.id) || []);
+        return movies.filter(movie => movie && !seenIds.has(movie.id) && !watchlistIds.has(movie.id) && !notInterestedIds.has(movie.id));
     }, [movies, userData]);
 
     return (

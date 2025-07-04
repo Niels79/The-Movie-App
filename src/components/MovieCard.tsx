@@ -1,4 +1,5 @@
 // FILE: src/components/MovieCard.tsx
+
 import React from 'react';
 import { useAuth, type Movie } from '../context/AuthContext';
 import { StarRating } from './StarRating';
@@ -9,9 +10,15 @@ interface MovieCardProps {
 
 export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const { userData, updateUserData, showNotification } = useAuth();
-    const seenItem = userData.seenList.find(item => item.movie.id === movie.id);
+    
+    // CORRECTED: Added extra checks to ensure items are valid before accessing properties.
+    const seenItem = userData.seenList?.find(item => 
+        item && item.movie && item.movie.id === movie.id
+    );
     const isSeen = !!seenItem;
-    const isWatchlist = userData.watchlist.some(m => m.id === movie.id);
+    const isWatchlist = userData.watchlist?.some(m => 
+        m && m.id === movie.id
+    );
     
     const onAddToSeen = () => {
         const newSeenList = [...userData.seenList, { movie, userRating: 0 }];
