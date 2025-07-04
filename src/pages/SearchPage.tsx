@@ -51,8 +51,27 @@ const SearchPage: React.FC = () => {
     return (
         <div>
             <div className="mb-8 flex space-x-2">
-                <input type="text" placeholder="Zoek een film..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} className="w-full p-4 bg-gray-800 border-2 border-gray-700 rounded-lg text-white"/>
-                <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg">Zoek</button>
+                <div className="relative w-full">
+                    <input 
+                        type="text" 
+                        placeholder="Zoek een film..." 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        onKeyPress={e => e.key === 'Enter' && handleSearch()} 
+                        className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white"
+                    />
+                    {searchTerm && (
+                        <button 
+                            onClick={() => setSearchTerm('')} 
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                        >
+                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+                <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg flex-shrink-0">Zoek</button>
             </div>
             {isLoading ? <p className="text-white text-center">Films laden...</p> : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
