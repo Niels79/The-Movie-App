@@ -6,14 +6,15 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-export interface Movie { id: number; title: string; rating: string; poster: string; genre: string; overview: string; }
-export interface SeenMovie { movie: Movie; userRating: number; }
+// UPDATED: release_year toegevoegd
+export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
+export interface SeenMovie { movie: MediaItem; userRating: number; }
 export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; }
 export interface UserData {
     preferences: UserPreferences;
-    watchlist: Movie[];
+    watchlist: MediaItem[];
     seenList: SeenMovie[];
-    notInterestedList: Movie[];
+    notInterestedList: MediaItem[];
 }
 
 interface AuthContextType {
@@ -21,6 +22,8 @@ interface AuthContextType {
   userData: UserData;
   loading: boolean;
   notification: string;
+  mediaType: 'movie' | 'tv';
+  setMediaType: (type: 'movie' | 'tv') => void;
   login: () => void;
   logout: () => void;
   updateUserData: (data: Partial<UserData>) => Promise<void>;
@@ -33,7 +36,6 @@ const defaultUserData: UserData = {
     seenList: [],
     notInterestedList: []
 };
-
 const AuthContext = createContext<AuthContextType | null>(null);
 export const useAuth = () => useContext(AuthContext)!;
 
@@ -42,6 +44,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [userData, setUserData] = useState<UserData>(defaultUserData);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState('');
+  const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -72,6 +75,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
         setLoading(false);
       });
+    
       return () => unsubscribe();
     }
   }, [user]);
@@ -84,21 +88,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         await signInWithCredential(auth, credential);
       } catch (error) { console.error("Native Google login fout:", error); }
     } else {
-      // Gebruik signInWithPopup voor de web-versie
       try {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
       } catch (error) { console.error("Web Google login fout:", error); }
     }
   };
-
   const logout = async () => {
     try {
       if (Capacitor.isNativePlatform()) { await GoogleAuth.signOut(); }
       await signOut(auth);
     } catch (error) { console.error("Fout bij uitloggen:", error); }
   };
-
   const updateUserData = async (data: Partial<UserData>) => {
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
@@ -110,7 +111,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setTimeout(() => setNotification(''), 3000);
   };
   
-  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification };
-
+  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

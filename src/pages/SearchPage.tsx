@@ -1,53 +1,59 @@
 // FILE: src/pages/SearchPage.tsx
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAuth, type Movie } from '../context/AuthContext';
+import { useAuth, type MediaItem } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 
 const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 const genreMap: { [key: number]: string } = { 28: "Actie", 12: "Avontuur", 16: "Animatie", 35: "Komedie", 80: "Misdaad", 99: "Documentaire", 18: "Drama", 10751: "Familie", 14: "Fantasy", 36: "Geschiedenis", 27: "Horror", 10402: "Muziek", 9648: "Mysterie", 10749: "Romantiek", 878: "Sciencefiction", 10770: "TV Film", 53: "Thriller", 10752: "Oorlog", 37: "Western" };
 
-const formatApiResults = (results: any[]): Movie[] => {
-    return results.filter(movie => movie && movie.poster_path && movie.vote_count > 20).map(movie => ({
-        id: movie.id, title: movie.title, rating: movie.vote_average.toFixed(1),
-        poster: `https://image.tmdb.org/t/p/w500${movie.poster_path}`,
-        genre: movie.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
-        overview: movie.overview
+// UPDATED: Haalt nu ook het jaartal op
+const formatApiResults = (results: any[], media_type: 'movie' | 'tv'): MediaItem[] => {
+    return results.filter(item => item && item.poster_path && item.vote_count > 20).map(item => ({
+        id: item.id,
+        title: item.title || item.name, 
+        rating: item.vote_average.toFixed(1),
+        poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
+        genre: item.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
+        overview: item.overview,
+        media_type: media_type,
+        // Films hebben 'release_date', series 'first_air_date'. We pakken het jaar.
+        release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
     }));
 };
 
 const SearchPage: React.FC = () => {
-    const { userData } = useAuth();
+    const { userData, mediaType } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
-    const [movies, setMovies] = useState<Movie[]>([]);
+    const [items, setItems] = useState<MediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchPopularMovies = async () => {
+        const fetchPopular = async () => {
             setIsLoading(true);
-            const res = await fetch(`https://api.themoviedb.org/3/movie/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`);
+            const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`);
             const data = await res.json();
-            setMovies(formatApiResults(data.results));
+            setItems(formatApiResults(data.results, mediaType));
             setIsLoading(false);
         };
-        fetchPopularMovies();
-    }, []);
+        
+        fetchPopular();
+    }, [mediaType]);
 
     const handleSearch = async () => {
         if (!searchTerm.trim()) return;
         setIsLoading(true);
-        const res = await fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerm)}&language=nl-NL`);
+        const res = await fetch(`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerm)}&language=nl-NL`);
         const data = await res.json();
-        setMovies(formatApiResults(data.results));
+        setItems(formatApiResults(data.results, mediaType));
         setIsLoading(false);
     };
 
-    const moviesToShow = useMemo(() => {
+    const itemsToShow = useMemo(() => {
         const seenIds = new Set(userData.seenList?.filter(m => m && m.movie).map(m => m.movie.id) || []);
         const watchlistIds = new Set(userData.watchlist?.filter(m => m && m.id).map(m => m.id) || []);
         const notInterestedIds = new Set(userData.notInterestedList?.filter(m => m && m.id).map(m => m.id) || []);
-        return movies.filter(movie => movie && !seenIds.has(movie.id) && !watchlistIds.has(movie.id) && !notInterestedIds.has(movie.id));
-    }, [movies, userData]);
+        return items.filter(item => item && !seenIds.has(item.id) && !watchlistIds.has(item.id) && !notInterestedIds.has(item.id));
+    }, [items, userData]);
 
     return (
         <div>
@@ -55,7 +61,7 @@ const SearchPage: React.FC = () => {
                 <div className="relative w-full">
                     <input 
                         type="text" 
-                        placeholder="Zoek een film..." 
+                        placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} 
                         value={searchTerm} 
                         onChange={e => setSearchTerm(e.target.value)} 
                         onKeyPress={e => e.key === 'Enter' && handleSearch()} 
@@ -74,9 +80,9 @@ const SearchPage: React.FC = () => {
                 </div>
                 <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg flex-shrink-0">Zoek</button>
             </div>
-            {isLoading ? <p className="text-white text-center">Films laden...</p> : (
+            {isLoading ? <p className="text-white text-center">Laden...</p> : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {moviesToShow.map(movie => <MovieCard key={movie.id} movie={movie} />)}
+                    {itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}
                 </div>
             )}
         </div>

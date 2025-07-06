@@ -1,6 +1,7 @@
 // FILE: src/pages/SettingsPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useAuth, type UserPreferences, type Movie } from '../context/AuthContext';
+// UPDATED: Movie is nu MediaItem
+import { useAuth, type UserPreferences, type MediaItem } from '../context/AuthContext';
 
 const allGenres = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Documentaire", "Drama", "Familie", "Fantasy", "Geschiedenis", "Horror", "Muziek", "Mysterie", "Romantiek", "Sciencefiction", "TV Film", "Thriller", "Oorlog", "Western"];
 const backgroundColors = [
@@ -22,11 +23,12 @@ const SettingsPage: React.FC = () => {
         updateUserData({ preferences: prefs });
         showNotification("Instellingen opgeslagen!");
     };
-    
-    const handleRestoreMovie = (movieToRestore: Movie) => {
-        const newNotInterestedList = userData.notInterestedList.filter(m => m.id !== movieToRestore.id);
+
+    // UPDATED: Werkt nu met MediaItem
+    const handleRestoreMovie = (itemToRestore: MediaItem) => {
+        const newNotInterestedList = userData.notInterestedList.filter(m => m.id !== itemToRestore.id);
         updateUserData({ notInterestedList: newNotInterestedList });
-        showNotification(`${movieToRestore.title} is weer zichtbaar.`);
+        showNotification(`${itemToRestore.title} is weer zichtbaar.`);
     }
 
     return (
@@ -34,14 +36,11 @@ const SettingsPage: React.FC = () => {
             <h2 className="text-3xl font-bold mb-6">⚙️ Instellingen</h2>
             
             <div className="mb-8">
-                <label className="block text-xl font-semibold text-white mb-3">Minimale TMDb Score</label>
-                <div className="flex items-center">
-                    <input
-                        type="range" min="1" max="10" step="0.1"
-                        value={prefs.imdbScore}
+                <label className="block text-xl font-semibold text-white mb-3">Minimale Score</label>
+                 <div className="flex items-center">
+                    <input type="range" min="1" max="10" step="0.1" value={prefs.imdbScore}
                         onChange={e => setPrefs({...prefs, imdbScore: parseFloat(e.target.value)})}
-                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                    />
+                        className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
                     <span className="ml-4 text-2xl font-bold text-yellow-400 w-20 text-center">
                         {prefs.imdbScore.toFixed(1)}
                     </span>
@@ -60,7 +59,7 @@ const SettingsPage: React.FC = () => {
                         </button>
                     ))}
                 </div>
-            </div>
+             </div>
 
             <div className="mb-8">
                 <h3 className="text-xl font-semibold text-white mb-4">Achtergrondkleur</h3>
@@ -76,17 +75,17 @@ const SettingsPage: React.FC = () => {
             </div>
             
             <div className="border-t border-gray-700 pt-8">
-                <h3 className="text-xl font-semibold mb-4">Verborgen Films ({userData.notInterestedList.length})</h3>
+                <h3 className="text-xl font-semibold mb-4">Verborgen Items ({userData.notInterestedList.length})</h3>
                 <div className="space-y-2">
-                    {userData.notInterestedList.map(movie => (
-                        <div key={movie.id} className="flex justify-between items-center bg-gray-700 p-2 rounded">
-                            <span>{movie.title}</span>
-                            <button onClick={() => handleRestoreMovie(movie)} className="text-sm bg-green-600 px-2 py-1 rounded">Herstellen</button>
+                     {userData.notInterestedList.map(item => (
+                        <div key={item.id} className="flex justify-between items-center bg-gray-700 p-2 rounded">
+                            <span>{item.title} ({item.media_type === 'movie' ? 'Film' : 'Serie'})</span>
+                            <button onClick={() => handleRestoreMovie(item)} className="text-sm bg-green-600 px-2 py-1 rounded">Herstellen</button>
                         </div>
                     ))}
-                    {userData.notInterestedList.length === 0 && <p className="text-gray-400">Je hebt geen films verborgen.</p>}
+                    {userData.notInterestedList.length === 0 && <p className="text-gray-400">Je hebt geen films of series verborgen.</p>}
                 </div>
-            </div>
+             </div>
         </div>
     );
 };
