@@ -6,11 +6,9 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
-
 export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
 export interface SeenMovie { movie: MediaItem; userRating: number; }
-export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; }
+export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; textColor: string; }
 export interface UserData {
     preferences: UserPreferences;
     watchlist: MediaItem[];
@@ -24,7 +22,6 @@ interface AuthContextType {
   loading: boolean;
   notification: string;
   mediaType: 'movie' | 'tv';
-  nowPlayingIds: number[];
   setMediaType: (type: 'movie' | 'tv') => void;
   login: () => void;
   logout: () => void;
@@ -33,7 +30,7 @@ interface AuthContextType {
 }
 
 const defaultUserData: UserData = {
-    preferences: { imdbScore: 7.0, genres: [], backgroundColor: 'bg-gray-900' },
+    preferences: { imdbScore: 7.0, genres: [], backgroundColor: 'bg-gray-900', textColor: 'text-white' },
     watchlist: [],
     seenList: [],
     notInterestedList: []
@@ -47,30 +44,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState('');
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
-  const [nowPlayingIds, setNowPlayingIds] = useState<number[]>([]);
-
-  useEffect(() => {
-    const fetchNowPlaying = async () => {
-        try {
-            const res = await fetch(`https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&region=NL`);
-            const data = await res.json();
-            if (data.results) {
-                const ids = data.results.map((movie: any) => movie.id);
-                setNowPlayingIds(ids);
-            }
-        } catch (error) {
-            console.error("Fout bij ophalen 'Nu in de Bioscoop' lijst:", error);
-        }
-    };
-    fetchNowPlaying();
-  }, []);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      GoogleAuth.initialize({
-        scopes: ['profile', 'email'],
-        grantOfflineAccess: true,
-      });
+      GoogleAuth.initialize({ scopes: ['profile', 'email'], grantOfflineAccess: true });
     }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -84,7 +61,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       const userDocRef = doc(db, 'users', user.uid);
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          setUserData(docSnap.data() as UserData);
+          // Zorg ervoor dat oude data de nieuwe velden krijgt
+          const fetchedData = docSnap.data();
+          const completePreferences = { ...defaultUserData.preferences, ...fetchedData.preferences };
+          setUserData({ ...defaultUserData, ...fetchedData, preferences: completePreferences });
         } else {
           setDoc(userDocRef, defaultUserData);
         }
@@ -94,9 +74,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     }
   }, [user]);
 
-  // ===============================================================
-  // HIER STAAN DE FUNCTIES DIE ONTBREKEN - NU WEER TERUGGEZET
-  // ===============================================================
   const login = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
@@ -130,6 +107,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setTimeout(() => setNotification(''), 3000);
   };
   
-  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType, nowPlayingIds };
+  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType };
+  
+  // ===============================================================
+  // HIER ZAT DE TYPEFOUT - NU GECORRIGEERD
+  // ===============================================================
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
