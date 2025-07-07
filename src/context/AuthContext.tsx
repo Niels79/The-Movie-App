@@ -6,7 +6,8 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-// UPDATED: release_year toegevoegd
+const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
+
 export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
 export interface SeenMovie { movie: MediaItem; userRating: number; }
 export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; }
@@ -23,6 +24,7 @@ interface AuthContextType {
   loading: boolean;
   notification: string;
   mediaType: 'movie' | 'tv';
+  nowPlayingIds: number[];
   setMediaType: (type: 'movie' | 'tv') => void;
   login: () => void;
   logout: () => void;
@@ -45,6 +47,23 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState('');
   const [mediaType, setMediaType] = useState<'movie' | 'tv'>('movie');
+  const [nowPlayingIds, setNowPlayingIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    const fetchNowPlaying = async () => {
+        try {
+            const res = await fetch(`https://api.themoviedb.org/3/movie/now_playing?api_key=${TMDB_API_KEY}&region=NL`);
+            const data = await res.json();
+            if (data.results) {
+                const ids = data.results.map((movie: any) => movie.id);
+                setNowPlayingIds(ids);
+            }
+        } catch (error) {
+            console.error("Fout bij ophalen 'Nu in de Bioscoop' lijst:", error);
+        }
+    };
+    fetchNowPlaying();
+  }, []);
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
@@ -53,14 +72,10 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         grantOfflineAccess: true,
       });
     }
-    
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) {
-        setLoading(false);
-      }
+      if (!currentUser) { setLoading(false); }
     });
-
     return () => unsubscribe();
   }, []);
 
@@ -75,11 +90,13 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         }
         setLoading(false);
       });
-    
       return () => unsubscribe();
     }
   }, [user]);
 
+  // ===============================================================
+  // HIER STAAN DE FUNCTIES DIE ONTBREKEN - NU WEER TERUGGEZET
+  // ===============================================================
   const login = async () => {
     if (Capacitor.isNativePlatform()) {
       try {
@@ -94,12 +111,14 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       } catch (error) { console.error("Web Google login fout:", error); }
     }
   };
+
   const logout = async () => {
     try {
       if (Capacitor.isNativePlatform()) { await GoogleAuth.signOut(); }
       await signOut(auth);
     } catch (error) { console.error("Fout bij uitloggen:", error); }
   };
+
   const updateUserData = async (data: Partial<UserData>) => {
     if (!user) return;
     const userDocRef = doc(db, 'users', user.uid);
@@ -111,6 +130,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     setTimeout(() => setNotification(''), 3000);
   };
   
-  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType };
+  const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType, nowPlayingIds };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
