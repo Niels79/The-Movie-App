@@ -28,13 +28,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const fetchAvailability = async () => {
         if (availability.status !== 'idle' || isSeen) return;
         setAvailability({ status: 'loading', data: [] });
-        
-        // =======================================================================
-        // DE FIX ZIT HIER: We gaan uit van 'movie' als media_type ontbreekt.
-        // =======================================================================
-        const type = movie.media_type || 'movie';
 
-        // 1. Check voor streaming providers
+        const type = movie.media_type || 'movie';
         const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/watch/providers?api_key=${TMDB_API_KEY}`);
         const providersData = await providersRes.json();
         
@@ -43,7 +38,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
             return;
         }
 
-        // 2. Als geen streaming en het is een film, check voor bioscooprelease
         if (type === 'movie') {
             const releaseDatesRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`);
             const releaseDatesData = await releaseDatesRes.json();
@@ -56,16 +50,47 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
             }
         }
 
-        // 3. Als geen van beide, is het niet beschikbaar
         setAvailability({ status: 'unavailable', data: [] });
     };
 
-    const onAddToSeen = () => { /* ... ongewijzigd ... */ };
-    const onRateMovie = (rating: number) => { /* ... ongewijzigd ... */ };
-    const onAddToWatchlist = () => { /* ... ongewijzigd ... */ };
-    const onRemoveFromSeen = () => { /* ... ongewijzigd ... */ };
-    const onRemoveFromWatchlist = () => { /* ... ongewijzigd ... */ };
-    const onNotInterested = () => { /* ... ongewijzigd ... */ };
+    const onAddToSeen = () => {
+        const newSeenList = [{ movie, userRating: 0 }, ...(userData.seenList || [])];
+        const newWatchlist = (userData.watchlist || []).filter(m => m.id !== movie.id);
+        updateUserData({ seenList: newSeenList, watchlist: newWatchlist });
+        showNotification(`${movie.title} toegevoegd aan 'Gezien'`);
+    };
+
+    const onRateMovie = (rating: number) => {
+        const newSeenList = (userData.seenList || []).map(item => {
+            if (item && item.movie && item.movie.id === movie.id) {
+                return { ...item, userRating: rating };
+            }
+            return item;
+        }).filter(Boolean);
+        updateUserData({ seenList: newSeenList });
+        showNotification(`Waardering voor ${movie.title} aangepast`);
+    };
+
+    const onAddToWatchlist = () => {
+        const newWatchlist = [...(userData.watchlist || []), movie];
+        updateUserData({ watchlist: newWatchlist });
+        showNotification(`${movie.title} toegevoegd aan kijklijst`);
+    };
+    const onRemoveFromSeen = () => {
+        const newSeenList = (userData.seenList || []).filter(item => item?.movie?.id !== movie.id);
+        updateUserData({ seenList: newSeenList });
+        showNotification(`${movie.title} verwijderd`);
+    };
+    const onRemoveFromWatchlist = () => {
+        const newWatchlist = (userData.watchlist || []).filter(m => m.id !== movie.id);
+        updateUserData({ watchlist: newWatchlist });
+        showNotification(`${movie.title} verwijderd van kijklijst`);
+    };
+    const onNotInterested = () => {
+        const newNotInterestedList = [...(userData.notInterestedList || []), movie];
+        updateUserData({ notInterestedList: newNotInterestedList });
+        showNotification(`${movie.title} verborgen`);
+    };
 
     return (
         <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col text-white">
@@ -93,31 +118,37 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                 <p className="text-yellow-400">⭐ {movie.rating}</p>
                 <p className="text-gray-400 text-sm mb-2">{movie.genre}</p>
                 
-                <div className="mb-4 min-h-[50px]">
-                    {availability.status === 'loading' && <p className="text-xs text-gray-400">Zoeken...</p>}
-                    {availability.status === 'streaming' && (
-                         <div>
-                            <p className="text-xs text-gray-400 mb-1">Te zien op:</p>
-                            <div className="flex flex-wrap gap-2">
-                                {availability.data.map(provider => (
-                                    <img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />
-                                ))}
+                {/* ======================================================================= */}
+                {/* DE AANPASSING ZIT HIER: De container wordt nu alleen getoond indien nodig. */}
+                {/* De 'min-h-[50px]' is behouden voor een soepele laad-ervaring.        */}
+                {/* ======================================================================= */}
+                {availability.status !== 'idle' && (
+                    <div className="mb-4 min-h-[50px]">
+                        {availability.status === 'loading' && <p className="text-xs text-gray-400">Zoeken...</p>}
+                        {availability.status === 'streaming' && (
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Te zien op:</p>
+                                <div className="flex flex-wrap gap-2">
+                                    {availability.data.map(provider => (
+                                        <img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    {availability.status === 'cinema' && (
-                        <div>
-                            <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
-                            <p className="text-sm font-semibold">Draait (of draaide recent) in de bioscoop</p>
-                        </div>
-                    )}
-                    {availability.status === 'unavailable' && (
-                         <div>
-                            <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
-                            <p className="text-sm font-semibold">Momenteel nergens te zien</p>
-                        </div>
-                    )}
-                </div>
+                        )}
+                        {availability.status === 'cinema' && (
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
+                                <p className="text-sm font-semibold">Draait (of draaide recent) in de bioscoop</p>
+                            </div>
+                        )}
+                        {availability.status === 'unavailable' && (
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
+                                <p className="text-sm font-semibold">Momenteel nergens te zien</p>
+                            </div>
+                        )}
+                    </div>
+                )}
                 
                 {isSeen && seenItem && (
                     <div className="my-2">

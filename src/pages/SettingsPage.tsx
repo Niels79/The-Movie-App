@@ -1,14 +1,24 @@
 // FILE: src/pages/SettingsPage.tsx
 import React, { useState, useEffect } from 'react';
-// UPDATED: Movie is nu MediaItem
 import { useAuth, type UserPreferences, type MediaItem } from '../context/AuthContext';
 
 const allGenres = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Documentaire", "Drama", "Familie", "Fantasy", "Geschiedenis", "Horror", "Muziek", "Mysterie", "Romantiek", "Sciencefiction", "TV Film", "Thriller", "Oorlog", "Western"];
-const backgroundColors = [
-    { name: 'Donkergrijs', class: 'bg-gray-900' },
-    { name: 'Leisteen', class: 'bg-slate-900' },
-    { name: 'Middernacht', class: 'bg-zinc-900' },
-    { name: 'Indigo', class: 'bg-indigo-900' },
+
+// =======================================================================
+// DE AANPASSING ZIT HIER: Het nieuwe, door jou gekozen kleurenpalet.
+// =======================================================================
+const darkThemes = [
+    { name: 'Antraciet', bg: 'bg-gray-800', text: 'text-white' },
+    { name: 'Nachtblauw', bg: 'bg-slate-900', text: 'text-slate-200' },
+    { name: 'Woudgroen', bg: 'bg-emerald-950', text: 'text-emerald-100' },
+    { name: 'Marineblauw', bg: 'bg-blue-950', text: 'text-blue-200' }, // Vertaald van #063970
+];
+
+const lightThemes = [
+    { name: 'Zeeblauw', bg: 'bg-cyan-100', text: 'text-cyan-900' }, // Vertaald van #2694b9
+    { name: 'Goudgeel', bg: 'bg-amber-400', text: 'text-white' }, // Vertaald van #F3B408
+    { name: 'Zachtgroen', bg: 'bg-teal-50', text: 'text-teal-900' },
+    { name: 'Lichtgrijs', bg: 'bg-slate-200', text: 'text-slate-800' },
 ];
 
 const SettingsPage: React.FC = () => {
@@ -24,12 +34,11 @@ const SettingsPage: React.FC = () => {
         showNotification("Instellingen opgeslagen!");
     };
 
-    // UPDATED: Werkt nu met MediaItem
     const handleRestoreMovie = (itemToRestore: MediaItem) => {
         const newNotInterestedList = userData.notInterestedList.filter(m => m.id !== itemToRestore.id);
         updateUserData({ notInterestedList: newNotInterestedList });
         showNotification(`${itemToRestore.title} is weer zichtbaar.`);
-    }
+    };
 
     return (
         <div className="bg-gray-800 p-8 rounded-lg shadow-2xl text-white max-w-4xl mx-auto space-y-8">
@@ -37,7 +46,7 @@ const SettingsPage: React.FC = () => {
             
             <div className="mb-8">
                 <label className="block text-xl font-semibold text-white mb-3">Minimale Score</label>
-                 <div className="flex items-center">
+                <div className="flex items-center">
                     <input type="range" min="1" max="10" step="0.1" value={prefs.imdbScore}
                         onChange={e => setPrefs({...prefs, imdbScore: parseFloat(e.target.value)})}
                         className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
@@ -59,13 +68,36 @@ const SettingsPage: React.FC = () => {
                         </button>
                     ))}
                 </div>
-             </div>
+            </div>
 
             <div className="mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Achtergrondkleur</h3>
-                <div className="flex space-x-3">
-                    {backgroundColors.map(color => (
-                        <button key={color.class} onClick={() => setPrefs({...prefs, backgroundColor: color.class})} className={`w-10 h-10 rounded-full ${color.class} border-2 ${prefs.backgroundColor === color.class ? 'border-white' : 'border-transparent'}`}></button>
+                <h3 className="text-xl font-semibold text-white mb-4">Thema (Achtergrond & Tekst)</h3>
+                
+                <p className="text-sm text-gray-400 mb-3">Donkere Thema's</p>
+                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
+                    {darkThemes.map(theme => (
+                        <div key={theme.name} className="flex flex-col items-center gap-2">
+                            <button 
+                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
+                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-600'}`}
+                                title={theme.name}
+                            />
+                            <span className="text-xs">{theme.name}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <p className="text-sm text-gray-400 mt-6 mb-3">Lichte Thema's</p>
+                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
+                    {lightThemes.map(theme => (
+                        <div key={theme.name} className="flex flex-col items-center gap-2">
+                            <button 
+                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
+                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-900'}`}
+                                title={theme.name}
+                            />
+                             <span className="text-xs">{theme.name}</span>
+                        </div>
                     ))}
                 </div>
             </div>

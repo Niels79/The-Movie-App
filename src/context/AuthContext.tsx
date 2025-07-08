@@ -6,6 +6,7 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
+// --- Interfaces ---
 export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
 export interface SeenMovie { movie: MediaItem; userRating: number; }
 export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; textColor: string; }
@@ -15,7 +16,6 @@ export interface UserData {
     seenList: SeenMovie[];
     notInterestedList: MediaItem[];
 }
-
 interface AuthContextType {
   user: User | null;
   userData: UserData;
@@ -29,15 +29,19 @@ interface AuthContextType {
   showNotification: (message: string) => void;
 }
 
-const defaultUserData: UserData = {
+// --- Standaard Data ---
+export const defaultUserData: UserData = {
     preferences: { imdbScore: 7.0, genres: [], backgroundColor: 'bg-gray-900', textColor: 'text-white' },
     watchlist: [],
     seenList: [],
     notInterestedList: []
 };
+
+// --- Context Creatie ---
 const AuthContext = createContext<AuthContextType | null>(null);
 export const useAuth = () => useContext(AuthContext)!;
 
+// --- Auth Provider Component ---
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData>(defaultUserData);
@@ -59,58 +63,55 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   useEffect(() => {
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
+      // HERSTELD: De originele, robuuste onSnapshot listener die altijd werkt.
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
-          // Zorg ervoor dat oude data de nieuwe velden krijgt
-          const fetchedData = docSnap.data();
-          const completePreferences = { ...defaultUserData.preferences, ...fetchedData.preferences };
-          setUserData({ ...defaultUserData, ...fetchedData, preferences: completePreferences });
+          setUserData(docSnap.data() as UserData);
         } else {
           setDoc(userDocRef, defaultUserData);
         }
         setLoading(false);
       });
       return () => unsubscribe();
+    } else {
+      setUserData(defaultUserData); // Reset data als gebruiker uitlogt
     }
   }, [user]);
 
-  const login = async () => {
-    if (Capacitor.isNativePlatform()) {
-      try {
-        const googleUser = await GoogleAuth.signIn();
-        const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
-        await signInWithCredential(auth, credential);
-      } catch (error) { console.error("Native Google login fout:", error); }
-    } else {
-      try {
-        const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
-      } catch (error) { console.error("Web Google login fout:", error); }
-    }
-  };
+    const login = async () => {
+        if (Capacitor.isNativePlatform()) {
+          try {
+            const googleUser = await GoogleAuth.signIn();
+            const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+            await signInWithCredential(auth, credential);
+          } catch (error) { console.error("Native Google login fout:", error); }
+        } else {
+          try {
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(auth, provider);
+          } catch (error) { console.error("Web Google login fout:", error); }
+        }
+    };
 
-  const logout = async () => {
-    try {
-      if (Capacitor.isNativePlatform()) { await GoogleAuth.signOut(); }
-      await signOut(auth);
-    } catch (error) { console.error("Fout bij uitloggen:", error); }
-  };
+    const logout = async () => {
+        try {
+          if (Capacitor.isNativePlatform()) { await GoogleAuth.signOut(); }
+          await signOut(auth);
+        } catch (error) { console.error("Fout bij uitloggen:", error); }
+    };
 
-  const updateUserData = async (data: Partial<UserData>) => {
-    if (!user) return;
-    const userDocRef = doc(db, 'users', user.uid);
-    await setDoc(userDocRef, data, { merge: true });
-  };
+    // HERSTELD: De originele, werkende update functie.
+    const updateUserData = async (data: Partial<UserData>) => {
+        if (!user) return;
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, data, { merge: true });
+    };
 
-  const showNotification = (message: string) => {
-    setNotification(message);
-    setTimeout(() => setNotification(''), 3000);
-  };
+    const showNotification = (message: string) => {
+        setNotification(message);
+        setTimeout(() => setNotification(''), 3000);
+    };
   
   const value = { user, userData, loading, login, logout, updateUserData, notification, showNotification, mediaType, setMediaType };
-  
-  // ===============================================================
-  // HIER ZAT DE TYPEFOUT - NU GECORRIGEERD
-  // ===============================================================
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
