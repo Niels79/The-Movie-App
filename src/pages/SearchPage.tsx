@@ -1,4 +1,5 @@
 // FILE: src/pages/SearchPage.tsx
+// Trigger voor Netlify build
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
