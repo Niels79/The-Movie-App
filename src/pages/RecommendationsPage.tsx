@@ -114,7 +114,7 @@ const RecommendationsPage: React.FC = () => {
                     <div className="flex items-center max-w-lg mx-auto">
                         <input 
                             type="range" 
-                            min="1950" 
+                            min="1979" 
                             max={currentYear} 
                             step="1" 
                             value={minYear}
