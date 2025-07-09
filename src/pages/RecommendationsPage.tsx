@@ -40,50 +40,63 @@ const RecommendationsPage: React.FC = () => {
         );
     };
 
+    // =======================================================================
+    // DE FUNCTIE IS NU HERSCHREVEN OM DOOR TE ZOEKEN TOT HET EEN VAST AANTAL HEEFT
+    // =======================================================================
     const findRecommendations = async () => {
         setIsLoading(true);
         setRecommendations([]);
 
+        // Stel hier het gewenste aantal resultaten in.
+        const DESIRED_RESULTS = 8;
+        let finalRecs: MediaItem[] = [];
+        let currentPage = 1;
+
+        // Maak een Set van alle ID's die we willen vermijden voor snelle lookup.
+        const seenIds = new Set(userData.seenList?.filter(item => item && item.movie).map(item => item.movie.id));
+        const watchlistIds = new Set(userData.watchlist?.filter(item => item).map(item => item.id));
+        const notInterestedIds = new Set(userData.notInterestedList?.filter(item => item).map(item => item.id));
+        const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
+
         try {
-            const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
-            const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
-            
-            let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100`;
+            // Blijf pagina's ophalen totdat we genoeg resultaten hebben of er geen pagina's meer zijn.
+            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) { // Veiligheidslimiet van 15 pagina's
+                const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
+                const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
+                
+                let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
 
-            if (genreIds) {
-                apiUrl += `&with_genres=${genreIds}`;
-            }
-            
-            const releaseDateParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
-            apiUrl += `&${releaseDateParam}=${minYear}-01-01`;
+                if (genreIds) apiUrl += `&with_genres=${genreIds}`;
+                
+                const releaseDateParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
+                apiUrl += `&${releaseDateParam}=${minYear}-01-01`;
 
-            const res = await fetch(apiUrl);
-            if (!res.ok) {
-                throw new Error(`API verzoek mislukt met status: ${res.status}`);
+                const res = await fetch(apiUrl);
+                if (!res.ok) break; // Stop als de API een fout geeft
+
+                const data = await res.json();
+                const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
+
+                // Filter de nieuwe items
+                const validItems = fetchedItems.filter(item => {
+                    return !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore;
+                });
+
+                // Voeg de geldige items toe aan onze lijst
+                finalRecs.push(...validItems);
+
+                // Stop als we genoeg resultaten hebben of als de API geen pagina's meer heeft
+                if (data.page >= data.total_pages) {
+                    break;
+                }
+                currentPage++;
             }
-            const data = await res.json();
-            const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
-            
-            // ===============================================================
-            // DE FIX ZIT HIER: Extra .filter() toegevoegd om 'kapotte' data
-            // te negeren en crashes te voorkomen.
-            // ===============================================================
-            const seenIds = new Set(userData.seenList?.filter(item => item && item.movie).map(item => item.movie.id));
-            const watchlistIds = new Set(userData.watchlist?.filter(item => item).map(item => item.id));
-            const notInterestedIds = new Set(userData.notInterestedList?.filter(item => item).map(item => item.id));
-            
-            let finalRecs = fetchedItems.filter(item => {
-                const isOnAnyList = seenIds.has(item.id) || watchlistIds.has(item.id) || notInterestedIds.has(item.id);
-                const meetsMinScore = parseFloat(item.rating) >= userData.preferences.imdbScore;
-                return !isOnAnyList && meetsMinScore;
-            });
-            
-            finalRecs = finalRecs.sort(() => 0.5 - Math.random()).slice(0, 12);
-            
-            setRecommendations(finalRecs);
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
+            // Zorg ervoor dat we niet meer dan het gewenste aantal tonen en schud ze door elkaar
+            const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
+            setRecommendations(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
         }
     };
@@ -102,9 +115,7 @@ const RecommendationsPage: React.FC = () => {
                     <h3 className="text-xl font-semibold mb-4 text-center">1. Kies Genres (optioneel)</h3>
                     <div className="flex flex-wrap justify-center gap-2">
                         {availableGenres.map(genre => (
-                            <button key={genre} onClick={() => handleGenreToggle(genre)} className={`py-2 px-4 rounded-lg font-medium transition-all ${selectedGenres.includes(genre) ? 'bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
-                                {genre}
-                            </button>
+                            <button key={genre} onClick={() => handleGenreToggle(genre)} className={`py-2 px-4 rounded-lg font-medium transition-all ${selectedGenres.includes(genre) ? 'bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{genre}</button>
                         ))}
                     </div>
                 </div>
@@ -112,31 +123,20 @@ const RecommendationsPage: React.FC = () => {
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">2. Selecteer Minimaal Jaartal</h3>
                     <div className="flex items-center max-w-lg mx-auto">
-                        <input 
-                            type="range" 
-                            min="1979" 
-                            max={currentYear} 
-                            step="1" 
-                            value={minYear}
-                            onChange={e => setMinYear(parseInt(e.target.value))}
-                            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" 
-                        />
-                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">
-                            {minYear}
-                        </span>
+                        <input type="range" min="1950" max={currentYear} step="1" value={minYear} onChange={e => setMinYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{minYear}</span>
                     </div>
                 </div>
 
                 <div className="text-center pt-4">
                     <h3 className="text-xl font-semibold mb-4 text-center">3. Vind Aanbevelingen</h3>
-                    <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">
-                        {isLoading ? 'Zoeken...' : `Vind ${mediaType === 'movie' ? 'Films' : 'Series'}`}
-                    </button>
+                    <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
                 </div>
             </div>
 
             {recommendations.length > 0 && !isLoading && (
                 <div className="mt-8 text-left">
+                     <h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendations.length} resultaten):</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {recommendations.map(item => <MovieCard key={item.id} movie={item} />)}
                     </div>
