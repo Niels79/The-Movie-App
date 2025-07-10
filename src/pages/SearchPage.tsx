@@ -23,58 +23,49 @@ const SearchPage: React.FC = () => {
     const { userData, mediaType } = useAuth();
     const [searchTerm, setSearchTerm] = useState('');
     const [items, setItems] = useState<MediaItem[]>([]);
-    const [isLoading, setIsLoading] = useState(false); // Start niet op 'true'
+    const [isLoading, setIsLoading] = useState(false);
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const [activeSearchTerm, setActiveSearchTerm] = useState('');
 
-    // ===============================================================
-    // STAP 1: Bij het laden van de pagina, check of er opgeslagen data is.
-    // ===============================================================
+    // EFFECT 1: Laadt de staat uit localStorage of haalt de eerste data op
     useEffect(() => {
         const storageKey = `searchPageState_${mediaType}`;
-        const savedState = sessionStorage.getItem(storageKey);
+        const savedState = localStorage.getItem(storageKey);
 
         if (savedState) {
-            const { savedItems, savedPage, savedHasMore, savedActiveSearchTerm } = JSON.parse(savedState);
-            setItems(savedItems);
-            setPage(savedPage);
-            setHasMore(savedHasMore);
-            setActiveSearchTerm(savedActiveSearchTerm);
-            setSearchTerm(savedActiveSearchTerm); // Update ook de zoekbalk
+            try {
+                const { savedItems, savedPage, savedHasMore, savedActiveSearchTerm } = JSON.parse(savedState);
+                setItems(savedItems || []);
+                setPage(savedPage || 1);
+                setHasMore(savedHasMore !== false);
+                setActiveSearchTerm(savedActiveSearchTerm || '');
+                setSearchTerm(savedActiveSearchTerm || '');
+            } catch (e) {
+                fetchInitialItems(''); // Laad opnieuw bij corrupte data
+            }
         } else {
-            // Als er geen opgeslagen data is, haal dan de populaire items op.
             fetchInitialItems('');
         }
-    }, [mediaType]); // Draait alleen als de mediatype verandert
+    }, [mediaType]);
 
-    // ===============================================================
-    // STAP 2: Sla de staat op wanneer deze verandert.
-    // ===============================================================
+    // EFFECT 2: Slaat de huidige staat op in localStorage bij wijzigingen
     useEffect(() => {
         const storageKey = `searchPageState_${mediaType}`;
-        const stateToSave = {
-            savedItems: items,
-            savedPage: page,
-            savedHasMore: hasMore,
-            savedActiveSearchTerm: activeSearchTerm,
-        };
-        // Sla alleen op als er items zijn, om een lege pagina te voorkomen.
+        const stateToSave = { savedItems: items, savedPage: page, savedHasMore: hasMore, savedActiveSearchTerm: activeSearchTerm };
+        // Sla alleen op als er items zijn om een lege pagina te voorkomen
         if (items.length > 0) {
-            sessionStorage.setItem(storageKey, JSON.stringify(stateToSave));
+            localStorage.setItem(storageKey, JSON.stringify(stateToSave));
         }
     }, [items, page, hasMore, activeSearchTerm, mediaType]);
 
+    // Functie om de allereerste pagina op te halen (populair of zoekopdracht)
     const fetchInitialItems = async (term: string) => {
         setIsLoading(true);
         const isSearching = term.trim() !== '';
-        let apiUrl = '';
-
-        if (isSearching) {
-            apiUrl = `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=nl-NL&page=1`;
-        } else {
-            apiUrl = `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`;
-        }
+        const apiUrl = isSearching 
+            ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=nl-NL&page=1`
+            : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`;
 
         try {
             const res = await fetch(apiUrl);
@@ -86,30 +77,30 @@ const SearchPage: React.FC = () => {
         setIsLoading(false);
     };
 
+    // Functie voor de zoekknop
     const handleSearch = () => {
-        sessionStorage.removeItem(`searchPageState_${mediaType}`); // Verwijder oude state
+        const storageKey = `searchPageState_${mediaType}`;
+        localStorage.removeItem(storageKey); // Verwijder oude opgeslagen staat
         setActiveSearchTerm(searchTerm);
-        fetchInitialItems(searchTerm);
+        fetchInitialItems(searchTerm); // Start een nieuwe zoekopdracht
     };
 
+    // Functie voor de 'Laad Meer' knop
     const handleLoadMore = async () => {
         if (isLoading || !hasMore) return;
         setIsLoading(true);
+
         const nextPage = page + 1;
         const isSearching = activeSearchTerm.trim() !== '';
-        let apiUrl = '';
-
-        if (isSearching) {
-            apiUrl = `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=nl-NL&page=${nextPage}`;
-        } else {
-            apiUrl = `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=${nextPage}`;
-        }
-
+        const apiUrl = isSearching 
+            ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=nl-NL&page=${nextPage}`
+            : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=${nextPage}`;
+        
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
             const newItems = formatApiResults(data.results || [], mediaType);
-            setItems(prevItems => [...prevItems, ...newItems]);
+            setItems(prevItems => [...prevItems, ...newItems]); // Voeg nieuwe items toe aan de lijst
             setPage(nextPage);
             setHasMore(data.page < data.total_pages);
         } catch (error) { console.error("Fout bij laden van meer items:", error); }
@@ -117,9 +108,9 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        const seenIds = new Set(userData.seenList?.filter(item => item && item.movie).map(item => item.movie.id));
-        const watchlistIds = new Set(userData.watchlist?.filter(item => item).map(item => item.id));
-        const notInterestedIds = new Set(userData.notInterestedList?.filter(item => item).map(item => item.id));
+        const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
+        const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
+        const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         return items.filter(item => item && !seenIds.has(item.id) && !watchlistIds.has(item.id) && !notInterestedIds.has(item.id));
     }, [items, userData]);
 
@@ -129,26 +120,8 @@ const SearchPage: React.FC = () => {
                 <input type="text" placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white" />
                 <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg flex-shrink-0">Zoek</button>
             </div>
-
-            {items.length === 0 && !isLoading ? (
-                 <p className="text-white text-center">Geen resultaten gevonden.</p>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}
-                </div>
-            )}
-            
-            <div className="text-center mt-8">
-                {isLoading ? (
-                    <p className="text-white">Laden...</p>
-                ) : (
-                    hasMore && (
-                        <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">
-                            Laad Meer
-                        </button>
-                    )
-                )}
-            </div>
+            {itemsToShow.length === 0 && !isLoading ? (<p className="text-white text-center">Geen resultaten gevonden.</p>) : (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}</div>)}
+            <div className="text-center mt-8">{isLoading && items.length > 0 ? (<p className="text-white">Meer resultaten laden...</p>) : (hasMore && <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">Laad Meer</button>)}</div>
         </div>
     );
 };

@@ -26,8 +26,14 @@ const RecommendationsPage: React.FC = () => {
     const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-    const [minYear, setMinYear] = useState(1970);
+    
+    // =======================================================================
+    // 1. STATE AANGEPAST: minYear is nu startYear en endYear is toegevoegd.
+    // =======================================================================
     const currentYear = new Date().getFullYear();
+    const [startYear, setStartYear] = useState(1970);
+    const [endYear, setEndYear] = useState(currentYear);
+
 
     useEffect(() => {
         setSelectedGenres([]);
@@ -40,27 +46,21 @@ const RecommendationsPage: React.FC = () => {
         );
     };
 
-    // =======================================================================
-    // DE FUNCTIE IS NU HERSCHREVEN OM DOOR TE ZOEKEN TOT HET EEN VAST AANTAL HEEFT
-    // =======================================================================
     const findRecommendations = async () => {
         setIsLoading(true);
         setRecommendations([]);
 
-        // Stel hier het gewenste aantal resultaten in.
         const DESIRED_RESULTS = 8;
         let finalRecs: MediaItem[] = [];
         let currentPage = 1;
 
-        // Maak een Set van alle ID's die we willen vermijden voor snelle lookup.
         const seenIds = new Set(userData.seenList?.filter(item => item && item.movie).map(item => item.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(item => item).map(item => item.id));
         const notInterestedIds = new Set(userData.notInterestedList?.filter(item => item).map(item => item.id));
         const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
 
         try {
-            // Blijf pagina's ophalen totdat we genoeg resultaten hebben of er geen pagina's meer zijn.
-            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) { // Veiligheidslimiet van 15 pagina's
+            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) { 
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
                 
@@ -68,24 +68,26 @@ const RecommendationsPage: React.FC = () => {
 
                 if (genreIds) apiUrl += `&with_genres=${genreIds}`;
                 
-                const releaseDateParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
-                apiUrl += `&${releaseDateParam}=${minYear}-01-01`;
+                // =======================================================================
+                // 3. LOGICA AANGEPAST: Zoekt nu met een begin- én einddatum.
+                // =======================================================================
+                const releaseDateGteParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
+                const releaseDateLteParam = mediaType === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte';
+                apiUrl += `&${releaseDateGteParam}=${startYear}-01-01`;
+                apiUrl += `&${releaseDateLteParam}=${endYear}-12-31`;
 
                 const res = await fetch(apiUrl);
-                if (!res.ok) break; // Stop als de API een fout geeft
+                if (!res.ok) break;
 
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
 
-                // Filter de nieuwe items
                 const validItems = fetchedItems.filter(item => {
                     return !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore;
                 });
 
-                // Voeg de geldige items toe aan onze lijst
                 finalRecs.push(...validItems);
 
-                // Stop als we genoeg resultaten hebben of als de API geen pagina's meer heeft
                 if (data.page >= data.total_pages) {
                     break;
                 }
@@ -94,7 +96,6 @@ const RecommendationsPage: React.FC = () => {
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
-            // Zorg ervoor dat we niet meer dan het gewenste aantal tonen en schud ze door elkaar
             const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
             setRecommendations(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
@@ -120,11 +121,22 @@ const RecommendationsPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* ======================================================================= */}
+                {/* 2. UI AANGEPAST: Twee sliders voor een periode.                       */}
+                {/* ======================================================================= */}
                 <div>
-                    <h3 className="text-xl font-semibold mb-4 text-center">2. Selecteer Minimaal Jaartal</h3>
+                    <h3 className="text-xl font-semibold mb-4 text-center">2. Selecteer Periode</h3>
+                    {/* Startjaar Slider */}
+                    <div className="flex items-center max-w-lg mx-auto mb-4">
+                        <span className="w-16 text-right mr-4">Vanaf:</span>
+                        <input type="range" min="1950" max={currentYear} value={startYear} onChange={e => setStartYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{startYear}</span>
+                    </div>
+                    {/* Eindjaar Slider */}
                     <div className="flex items-center max-w-lg mx-auto">
-                        <input type="range" min="1950" max={currentYear} step="1" value={minYear} onChange={e => setMinYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{minYear}</span>
+                        <span className="w-16 text-right mr-4">Tot:</span>
+                        <input type="range" min="1950" max={currentYear} value={endYear} onChange={e => setEndYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{endYear}</span>
                     </div>
                 </div>
 
