@@ -100,6 +100,36 @@ const SettingsPage: React.FC = () => {
                 </div>
             </div>
 
+            <div className="mb-8">
+                <h3 className="text-xl font-semibold text-white mb-4">Thema (Achtergrond & Tekst)</h3>
+                <p className="text-sm text-gray-400 mb-3">Donkere Thema's</p>
+                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
+                    {darkThemes.map(theme => (
+                        <div key={theme.name} className="flex flex-col items-center gap-2">
+                            <button 
+                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
+                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-600'}`}
+                                title={theme.name}
+                            />
+                            <span className="text-xs">{theme.name}</span>
+                        </div>
+                    ))}
+                </div>
+                <p className="text-sm text-gray-400 mt-6 mb-3">Lichte Thema's</p>
+                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
+                    {lightThemes.map(theme => (
+                        <div key={theme.name} className="flex flex-col items-center gap-2">
+                            <button 
+                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
+                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-900'}`}
+                                title={theme.name}
+                            />
+                             <span className="text-xs">{theme.name}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
             <div className="flex justify-end">
                 <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-3 px-6 rounded-lg">Instellingen Opslaan</button>
             </div>
@@ -134,5 +164,4 @@ const SettingsPage: React.FC = () => {
         </div>
     );
 };
-
 export default SettingsPage;

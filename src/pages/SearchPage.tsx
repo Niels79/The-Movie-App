@@ -85,6 +85,7 @@ const SearchPage: React.FC = () => {
         const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
+        // HAAL DE VOORKEUREN HIER OP
         const preferredGenres = userData.preferences?.genres || [];
 
         return items.filter(item => {

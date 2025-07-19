@@ -1,5 +1,5 @@
 // FILE: src/components/MovieCard.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { StarRating } from './StarRating';
 
@@ -11,12 +11,6 @@ interface Provider {
     logo_path: string;
 }
 
-// TOEGEVOEGD: Interface voor een acteur
-interface Actor {
-    id: number;
-    name: string;
-}
-
 type AvailabilityStatus = 'idle' | 'loading' | 'streaming' | 'cinema' | 'unavailable';
 
 interface MovieCardProps {
@@ -26,71 +20,46 @@ interface MovieCardProps {
 export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const { userData, updateUserData, showNotification } = useAuth();
     const [availability, setAvailability] = useState<{ status: AvailabilityStatus, data: Provider[] }>({ status: 'idle', data: [] });
-    
-    // TOEGEVOEGD: State om de cast op te slaan
-    const [cast, setCast] = useState<Actor[]>([]);
 
     const seenItem = userData.seenList?.find(item => item && item.movie && item.movie.id === movie.id);
     const isSeen = !!seenItem;
-    const isWatchlist = userData.watchlist?.some(m => m && m.id === movie.id);
-
-    // TOEGEVOEGD: useEffect haalt nu ook de cast op
-    useEffect(() => {
-        const fetchDetails = async () => {
-            const type = movie.media_type || 'movie';
-            // Voor series gebruiken we 'aggregate_credits' voor de volledige cast
-            const creditsEndpoint = type === 'tv' ? 'aggregate_credits' : 'credits';
-            
-            try {
-                const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=nl-NL`);
-                const data = await res.json();
-                if (data.cast && data.cast.length > 0) {
-                    // Pak de top 3 acteurs
-                    setCast(data.cast.slice(0, 3));
-                }
-            } catch (error) {
-                console.error("Fout bij ophalen van cast:", error);
-            }
-        };
-
-        fetchDetails();
-    }, [movie.id, movie.media_type]);
-
+    const isWatchlist = userData.watchlist?.some(m => m.id === movie.id);
 
     const fetchAvailability = async () => {
         if (availability.status !== 'idle' || isSeen) return;
         setAvailability({ status: 'loading', data: [] });
+
         const type = movie.media_type || 'movie';
-        try {
-            const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/watch/providers?api_key=${TMDB_API_KEY}`);
-            const providersData = await providersRes.json();
-            if (providersData.results && providersData.results.NL && providersData.results.NL.flatrate && providersData.results.NL.flatrate.length > 0) {
-                setAvailability({ status: 'streaming', data: providersData.results.NL.flatrate });
+        const providersRes = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/watch/providers?api_key=${TMDB_API_KEY}`);
+        const providersData = await providersRes.json();
+        
+        if (providersData.results && providersData.results.NL && providersData.results.NL.flatrate && providersData.results.NL.flatrate.length > 0) {
+            setAvailability({ status: 'streaming', data: providersData.results.NL.flatrate });
+            return;
+        }
+
+        if (type === 'movie') {
+            const releaseDatesRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`);
+            const releaseDatesData = await releaseDatesRes.json();
+            const nlRelease = releaseDatesData.results?.find((r: any) => r.iso_3166_1 === 'NL');
+            const hasTheatricalRelease = nlRelease?.release_dates.some((d: any) => d.type === 3);
+
+            if (hasTheatricalRelease) {
+                setAvailability({ status: 'cinema', data: [] });
                 return;
             }
-            if (type === 'movie') {
-                const releaseDatesRes = await fetch(`https://api.themoviedb.org/3/movie/${movie.id}/release_dates?api_key=${TMDB_API_KEY}`);
-                const releaseDatesData = await releaseDatesRes.json();
-                const nlRelease = releaseDatesData.results?.find((r: any) => r.iso_3166_1 === 'NL');
-                const hasTheatricalRelease = nlRelease?.release_dates.some((d: any) => d.type === 3);
-                if (hasTheatricalRelease) {
-                    setAvailability({ status: 'cinema', data: [] });
-                    return;
-                }
-            }
-            setAvailability({ status: 'unavailable', data: [] });
-        } catch (error) {
-            console.error("Fout bij ophalen beschikbaarheid:", error);
-            setAvailability({ status: 'unavailable', data: [] });
         }
+
+        setAvailability({ status: 'unavailable', data: [] });
     };
 
     const onAddToSeen = () => {
         const newSeenList = [{ movie, userRating: 0 }, ...(userData.seenList || [])];
-        const newWatchlist = (userData.watchlist || []).filter(m => m && m.id !== movie.id);
+        const newWatchlist = (userData.watchlist || []).filter(m => m.id !== movie.id);
         updateUserData({ seenList: newSeenList, watchlist: newWatchlist });
         showNotification(`${movie.title} toegevoegd aan 'Gezien'`);
     };
+
     const onRateMovie = (rating: number) => {
         const newSeenList = (userData.seenList || []).map(item => {
             if (item && item.movie && item.movie.id === movie.id) {
@@ -101,6 +70,7 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
         updateUserData({ seenList: newSeenList });
         showNotification(`Waardering voor ${movie.title} aangepast`);
     };
+
     const onAddToWatchlist = () => {
         const newWatchlist = [...(userData.watchlist || []), movie];
         updateUserData({ watchlist: newWatchlist });
@@ -147,25 +117,36 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
 
                 <p className="text-yellow-400">⭐ {movie.rating}</p>
                 <p className="text-gray-400 text-sm mb-2">{movie.genre}</p>
-
-                {/* TOEGEVOEGD: Sectie om de cast te tonen */}
-                {cast.length > 0 && (
-                    <p className="text-xs text-gray-500 mb-4 truncate">
-                        Met: {cast.map(actor => actor.name).join(', ')}
-                    </p>
-                )}
                 
+                {/* ======================================================================= */}
+                {/* DE AANPASSING ZIT HIER: De container wordt nu alleen getoond indien nodig. */}
+                {/* De 'min-h-[50px]' is behouden voor een soepele laad-ervaring.        */}
+                {/* ======================================================================= */}
                 {availability.status !== 'idle' && (
                     <div className="mb-4 min-h-[50px]">
                         {availability.status === 'loading' && <p className="text-xs text-gray-400">Zoeken...</p>}
                         {availability.status === 'streaming' && (
                             <div>
                                 <p className="text-xs text-gray-400 mb-1">Te zien op:</p>
-                                <div className="flex flex-wrap gap-2">{availability.data.map(provider => (<img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />))}</div>
+                                <div className="flex flex-wrap gap-2">
+                                    {availability.data.map(provider => (
+                                        <img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />
+                                    ))}
+                                </div>
                             </div>
                         )}
-                        {availability.status === 'cinema' && (<div><p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p><p className="text-sm font-semibold">Draait (of draaide recent) in de bioscoop</p></div>)}
-                        {availability.status === 'unavailable' && (<div><p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p><p className="text-sm font-semibold">Momenteel nergens te zien</p></div>)}
+                        {availability.status === 'cinema' && (
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
+                                <p className="text-sm font-semibold">Draait (of draaide recent) in de bioscoop</p>
+                            </div>
+                        )}
+                        {availability.status === 'unavailable' && (
+                            <div>
+                                <p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p>
+                                <p className="text-sm font-semibold">Momenteel nergens te zien</p>
+                            </div>
+                        )}
                     </div>
                 )}
                 
@@ -177,7 +158,17 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                 )}
                 
                 <div className="mt-auto pt-4 border-t border-gray-700">
-                    {isSeen ? (<button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>) : (<div className="space-y-2"><button onClick={onAddToSeen} className="w-full bg-green-600 text-white py-2 rounded-lg">Gezien</button>{isWatchlist ? <button onClick={onRemoveFromWatchlist} className="w-full bg-orange-600 text-white py-2 rounded-lg">Verwijder van Kijklijst</button> : <button onClick={onAddToWatchlist} className="w-full bg-blue-600 text-white py-2 rounded-lg">Kijklijst</button>}</div>)}
+                    {isSeen ? (
+                        <button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>
+                    ) : (
+                        <div className="space-y-2">
+                          <button onClick={onAddToSeen} className="w-full bg-green-600 text-white py-2 rounded-lg">Gezien</button>
+                             {isWatchlist ? 
+                                <button onClick={onRemoveFromWatchlist} className="w-full bg-orange-600 text-white py-2 rounded-lg">Verwijder van Kijklijst</button> :
+                                <button onClick={onAddToWatchlist} className="w-full bg-blue-600 text-white py-2 rounded-lg">Kijklijst</button>
+                             }
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

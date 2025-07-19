@@ -9,7 +9,7 @@ import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
 export interface SeenMovie { movie: MediaItem; userRating: number; }
 // TOEGEVOEGD: 'genres' is weer terug in de voorkeuren
-export interface UserPreferences { imdbScore: number; genres: string[]; }
+export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; textColor: string; }
 export interface UserData {
     preferences: UserPreferences;
     watchlist: MediaItem[];
@@ -32,7 +32,7 @@ interface AuthContextType {
 
 // TOEGEVOEGD: 'genres' is weer terug in de standaard data
 export const defaultUserData: UserData = {
-    preferences: { imdbScore: 7.0, genres: [] },
+    preferences: { imdbScore: 7.0, genres: [], backgroundColor: 'bg-gray-800', textColor: 'text-white' },
     watchlist: [],
     seenList: [],
     notInterestedList: []
