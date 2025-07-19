@@ -1,6 +1,6 @@
 // FILE: src/pages/RecommendationsPage.tsx
-import React, { useState, useEffect, useMemo } from 'react'; // 'useMemo' is hier toegevoegd
-import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext'; // 'SeenMovie' is hier toegevoegd
+import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth, type MediaItem } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 
 const TMDB_API_KEY_REC = "3223e3fb3a787e27ce5ca70cccbdb3bd";
@@ -14,7 +14,7 @@ const formatApiResultsRec = (results: any[], media_type: 'movie' | 'tv', genreMa
         title: item.title || item.name,
         rating: item.vote_average.toFixed(1),
         poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
-        genre: item.genre_ids.map((id: number) => reversedGenreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
+        genre: item.genre_ids.map((id: number) => reversedGenreMap[id]).filter(Boolean).join(', '),
         overview: item.overview,
         media_type: media_type,
         release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
@@ -47,12 +47,10 @@ const RecommendationsPage: React.FC = () => {
         const DESIRED_RESULTS = 8;
         let finalRecs: MediaItem[] = [];
         let currentPage = 1;
-
-        // DE FIX ZIT HIER: De types (SeenMovie, MediaItem) zijn toegevoegd om de fout op te lossen.
         const excludedIds = new Set([
-            ...(userData.seenList?.filter((item: SeenMovie) => item && item.movie).map((item: SeenMovie) => item.movie.id) || []),
-            ...(userData.watchlist?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || []),
-            ...(userData.notInterestedList?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || [])
+            ...(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id) || []),
+            ...(userData.watchlist?.filter(i => i).map(i => i.id) || []),
+            ...(userData.notInterestedList?.filter(i => i).map(i => i.id) || [])
         ]);
 
         try {
@@ -81,7 +79,18 @@ const RecommendationsPage: React.FC = () => {
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
-            const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
+            // DE FIX ZIT HIER: Past nu het strikte genre-filter toe op de gevonden aanbevelingen.
+            const preferredGenres = userData.preferences?.genres || [];
+            let filteredRecs = finalRecs;
+
+            if (preferredGenres.length > 0) {
+                filteredRecs = finalRecs.filter(item => {
+                    const itemGenres = item.genre.split(', ').filter(g => g);
+                    return itemGenres.every(genre => preferredGenres.includes(genre));
+                });
+            }
+
+            const shuffledRecs = filteredRecs.sort(() => 0.5 - Math.random());
             setFoundRecs(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
         }
@@ -123,16 +132,8 @@ const RecommendationsPage: React.FC = () => {
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
                 </div>
             </div>
-            {recommendationsToShow.length > 0 && !isLoading && (
-                <div className="mt-8 text-left">
-                     <h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendationsToShow.length} resultaten):</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {recommendationsToShow.map(item => <MovieCard key={item.id} movie={item} />)}
-                    </div>
-                </div>
-            )}
+            {recommendationsToShow.length > 0 && !isLoading && (<div className="mt-8 text-left"><h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendationsToShow.length} resultaten):</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{recommendationsToShow.map(item => <MovieCard key={item.id} movie={item} />)}</div></div>)}
         </div>
     );
 };
-
 export default RecommendationsPage;
