@@ -1,6 +1,6 @@
 // FILE: src/pages/RecommendationsPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { useAuth, type MediaItem } from '../context/AuthContext';
+import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 
 const TMDB_API_KEY_REC = "3223e3fb3a787e27ce5ca70cccbdb3bd";
@@ -45,16 +45,32 @@ const RecommendationsPage: React.FC = () => {
         setIsLoading(true);
         setFoundRecs([]);
         const DESIRED_RESULTS = 8;
-        let finalRecs: MediaItem[] = [];
+        let potentialRecs: MediaItem[] = [];
         let currentPage = 1;
+
         const excludedIds = new Set([
-            ...(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id) || []),
-            ...(userData.watchlist?.filter(i => i).map(i => i.id) || []),
-            ...(userData.notInterestedList?.filter(i => i).map(i => i.id) || [])
+            ...(userData.seenList?.filter((item: SeenMovie) => item && item.movie).map((item: SeenMovie) => item.movie.id) || []),
+            ...(userData.watchlist?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || []),
+            ...(userData.notInterestedList?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || [])
         ]);
+        
+        // =======================================================================
+        // 1. SLIMME ANALYSE: Bepaal de favoriete genres op basis van je hoge cijfers.
+        // =======================================================================
+        const genreScores: { [key: string]: number } = {};
+        const highlyRatedItems = userData.seenList?.filter(item => item && item.userRating >= 7);
+        highlyRatedItems?.forEach(item => {
+            item.movie.genre.split(', ').forEach(genre => {
+                if (genre) {
+                    // Een hoger cijfer geeft een grotere boost aan het genre
+                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); 
+                }
+            });
+        });
 
         try {
-            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) {
+            // Haal een grotere pool van films op om uit te kiezen
+            while (potentialRecs.length < 50 && currentPage < 10) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
@@ -67,31 +83,39 @@ const RecommendationsPage: React.FC = () => {
 
                 const res = await fetch(apiUrl);
                 if (!res.ok) break;
-
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
-                const validItems = fetchedItems.filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore);
-                finalRecs.push(...validItems);
+                potentialRecs.push(...fetchedItems);
 
                 if (data.page >= data.total_pages) break;
                 currentPage++;
             }
+            
+            // =======================================================================
+            // 2. SLIMME SCORING: Geef elke film een persoonlijke relevantiescore.
+            // =======================================================================
+            const scoredRecs = potentialRecs
+                .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
+                .map(item => {
+                    let score = 0;
+                    // Geef een boost op basis van jouw favoriete genres
+                    item.genre.split(', ').forEach(genre => {
+                        if (genreScores[genre]) {
+                            score += genreScores[genre];
+                        }
+                    });
+                    // Voeg de publieke rating toe als een kleinere factor
+                    score += parseFloat(item.rating) / 4;
+                    return { ...item, relevanceScore: score };
+                });
+            
+            // Sorteer op de nieuwe relevantiescore en pak de beste 8
+            const finalRecs = scoredRecs.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, DESIRED_RESULTS);
+            setFoundRecs(finalRecs);
+
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
-            // DE FIX ZIT HIER: Past nu het strikte genre-filter toe op de gevonden aanbevelingen.
-            const preferredGenres = userData.preferences?.genres || [];
-            let filteredRecs = finalRecs;
-
-            if (preferredGenres.length > 0) {
-                filteredRecs = finalRecs.filter(item => {
-                    const itemGenres = item.genre.split(', ').filter(g => g);
-                    return itemGenres.every(genre => preferredGenres.includes(genre));
-                });
-            }
-
-            const shuffledRecs = filteredRecs.sort(() => 0.5 - Math.random());
-            setFoundRecs(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
         }
     };
@@ -136,4 +160,5 @@ const RecommendationsPage: React.FC = () => {
         </div>
     );
 };
+
 export default RecommendationsPage;
