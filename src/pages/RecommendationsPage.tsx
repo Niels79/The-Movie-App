@@ -26,14 +26,9 @@ const RecommendationsPage: React.FC = () => {
     const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-    
-    // =======================================================================
-    // 1. STATE AANGEPAST: minYear is nu startYear en endYear is toegevoegd.
-    // =======================================================================
     const currentYear = new Date().getFullYear();
     const [startYear, setStartYear] = useState(1970);
     const [endYear, setEndYear] = useState(currentYear);
-
 
     useEffect(() => {
         setSelectedGenres([]);
@@ -51,26 +46,36 @@ const RecommendationsPage: React.FC = () => {
         setRecommendations([]);
 
         const DESIRED_RESULTS = 8;
-        let finalRecs: MediaItem[] = [];
+        let potentialRecs: MediaItem[] = [];
         let currentPage = 1;
 
-        const seenIds = new Set(userData.seenList?.filter(item => item && item.movie).map(item => item.movie.id));
-        const watchlistIds = new Set(userData.watchlist?.filter(item => item).map(item => item.id));
-        const notInterestedIds = new Set(userData.notInterestedList?.filter(item => item).map(item => item.id));
-        const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
+        const excludedIds = new Set([
+            ...(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id) || []),
+            ...(userData.watchlist?.filter(i => i).map(i => i.id) || []),
+            ...(userData.notInterestedList?.filter(i => i).map(i => i.id) || [])
+        ]);
+        
+        // =======================================================================
+        // 1. SLIMME ANALYSE: Bepaal de favoriete genres van de gebruiker.
+        // =======================================================================
+        const genreScores: { [key: string]: number } = {};
+        const highlyRatedItems = userData.seenList?.filter(item => item && item.userRating >= 7);
+        highlyRatedItems?.forEach(item => {
+            item.movie.genre.split(', ').forEach(genre => {
+                if (genre) {
+                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); // Een 10 geeft +4, een 7 geeft +1
+                }
+            });
+        });
 
         try {
-            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) { 
+            while (potentialRecs.length < 50 && currentPage < 10) { // Haal een grotere pool op
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
                 
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
-
                 if (genreIds) apiUrl += `&with_genres=${genreIds}`;
                 
-                // =======================================================================
-                // 3. LOGICA AANGEPAST: Zoekt nu met een begin- én einddatum.
-                // =======================================================================
                 const releaseDateGteParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
                 const releaseDateLteParam = mediaType === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte';
                 apiUrl += `&${releaseDateGteParam}=${startYear}-01-01`;
@@ -81,23 +86,37 @@ const RecommendationsPage: React.FC = () => {
 
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
+                potentialRecs.push(...fetchedItems);
 
-                const validItems = fetchedItems.filter(item => {
-                    return !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore;
-                });
-
-                finalRecs.push(...validItems);
-
-                if (data.page >= data.total_pages) {
-                    break;
-                }
+                if (data.page >= data.total_pages) break;
                 currentPage++;
             }
+            
+            // =======================================================================
+            // 2. SLIMME SCORING: Geef elke film een persoonlijke relevantiescore.
+            // =======================================================================
+            const scoredRecs = potentialRecs
+                .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
+                .map(item => {
+                    let score = 0;
+                    // Boost de score op basis van jouw favoriete genres
+                    item.genre.split(', ').forEach(genre => {
+                        if (genreScores[genre]) {
+                            score += genreScores[genre];
+                        }
+                    });
+                    // Voeg de publieke rating toe als een kleinere factor
+                    score += parseFloat(item.rating) / 4;
+                    return { ...item, relevanceScore: score };
+                });
+            
+            // Sorteer op de nieuwe relevantiescore en pak de beste 8
+            const finalRecs = scoredRecs.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, DESIRED_RESULTS);
+            setRecommendations(finalRecs);
+
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
-            const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
-            setRecommendations(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
         }
     };
@@ -110,50 +129,30 @@ const RecommendationsPage: React.FC = () => {
                 <h2 className="text-3xl font-bold mb-4">Jouw Aanbevelingen</h2>
                 <p className="text-gray-400 mb-6">Gebruik de filters om je volgende favoriete {mediaType === 'movie' ? 'film' : 'serie'} te vinden.</p>
             </div>
-            
             <div className="my-8 p-6 bg-gray-800 rounded-lg space-y-6">
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">1. Kies Genres (optioneel)</h3>
-                    <div className="flex flex-wrap justify-center gap-2">
-                        {availableGenres.map(genre => (
-                            <button key={genre} onClick={() => handleGenreToggle(genre)} className={`py-2 px-4 rounded-lg font-medium transition-all ${selectedGenres.includes(genre) ? 'bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{genre}</button>
-                        ))}
-                    </div>
+                    <div className="flex flex-wrap justify-center gap-2">{availableGenres.map(genre => (<button key={genre} onClick={() => handleGenreToggle(genre)} className={`py-2 px-4 rounded-lg font-medium transition-all ${selectedGenres.includes(genre) ? 'bg-green-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{genre}</button>))}</div>
                 </div>
-
-                {/* ======================================================================= */}
-                {/* 2. UI AANGEPAST: Twee sliders voor een periode.                       */}
-                {/* ======================================================================= */}
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">2. Selecteer Periode</h3>
-                    {/* Startjaar Slider */}
                     <div className="flex items-center max-w-lg mx-auto mb-4">
                         <span className="w-16 text-right mr-4">Vanaf:</span>
-                        <input type="range" min="1950" max={currentYear} value={startYear} onChange={e => setStartYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <input type="range" min="1950" max={endYear} value={startYear} onChange={e => setStartYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
                         <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{startYear}</span>
                     </div>
-                    {/* Eindjaar Slider */}
                     <div className="flex items-center max-w-lg mx-auto">
                         <span className="w-16 text-right mr-4">Tot:</span>
-                        <input type="range" min="1950" max={currentYear} value={endYear} onChange={e => setEndYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
+                        <input type="range" min={startYear} max={currentYear} value={endYear} onChange={e => setEndYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
                         <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{endYear}</span>
                     </div>
                 </div>
-
                 <div className="text-center pt-4">
                     <h3 className="text-xl font-semibold mb-4 text-center">3. Vind Aanbevelingen</h3>
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
                 </div>
             </div>
-
-            {recommendations.length > 0 && !isLoading && (
-                <div className="mt-8 text-left">
-                     <h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendations.length} resultaten):</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {recommendations.map(item => <MovieCard key={item.id} movie={item} />)}
-                    </div>
-                </div>
-            )}
+            {recommendations.length > 0 && !isLoading && (<div className="mt-8 text-left"><h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendations.length} resultaten):</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{recommendations.map(item => <MovieCard key={item.id} movie={item} />)}</div></div>)}
         </div>
     );
 };
