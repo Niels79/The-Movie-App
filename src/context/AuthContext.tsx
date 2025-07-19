@@ -6,16 +6,17 @@ import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
 import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
-// --- Interfaces ---
 export interface MediaItem { id: number; title: string; rating: string; poster: string; genre: string; overview: string; media_type: 'movie' | 'tv'; release_year: string; }
 export interface SeenMovie { movie: MediaItem; userRating: number; }
-export interface UserPreferences { imdbScore: number; genres: string[]; backgroundColor: string; textColor: string; }
+// TOEGEVOEGD: 'genres' is weer terug in de voorkeuren
+export interface UserPreferences { imdbScore: number; genres: string[]; }
 export interface UserData {
     preferences: UserPreferences;
     watchlist: MediaItem[];
     seenList: SeenMovie[];
     notInterestedList: MediaItem[];
 }
+
 interface AuthContextType {
   user: User | null;
   userData: UserData;
@@ -29,19 +30,17 @@ interface AuthContextType {
   showNotification: (message: string) => void;
 }
 
-// --- Standaard Data ---
+// TOEGEVOEGD: 'genres' is weer terug in de standaard data
 export const defaultUserData: UserData = {
-    preferences: { imdbScore: 7.0, genres: [], backgroundColor: 'bg-gray-900', textColor: 'text-white' },
+    preferences: { imdbScore: 7.0, genres: [] },
     watchlist: [],
     seenList: [],
     notInterestedList: []
 };
 
-// --- Context Creatie ---
 const AuthContext = createContext<AuthContextType | null>(null);
 export const useAuth = () => useContext(AuthContext)!;
 
-// --- Auth Provider Component ---
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData>(defaultUserData);
@@ -63,7 +62,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   useEffect(() => {
     if (user) {
       const userDocRef = doc(db, 'users', user.uid);
-      // HERSTELD: De originele, robuuste onSnapshot listener die altijd werkt.
       const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
         if (docSnap.exists()) {
           setUserData(docSnap.data() as UserData);
@@ -74,7 +72,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       });
       return () => unsubscribe();
     } else {
-      setUserData(defaultUserData); // Reset data als gebruiker uitlogt
+      setUserData(defaultUserData);
     }
   }, [user]);
 
@@ -100,7 +98,6 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
         } catch (error) { console.error("Fout bij uitloggen:", error); }
     };
 
-    // HERSTELD: De originele, werkende update functie.
     const updateUserData = async (data: Partial<UserData>) => {
         if (!user) return;
         const userDocRef = doc(db, 'users', user.uid);

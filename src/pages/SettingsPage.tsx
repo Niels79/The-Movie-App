@@ -19,9 +19,6 @@ const lightThemes = [
 ];
 
 const SettingsPage: React.FC = () => {
-    // =======================================================================
-    // 1. DE FIX ZIT HIER: 'user' wordt nu correct uit de context gehaald.
-    // =======================================================================
     const { user, userData, updateUserData, showNotification } = useAuth();
     const [prefs, setPrefs] = useState<UserPreferences>(userData.preferences);
     const [feedbackMessage, setFeedbackMessage] = useState('');
@@ -35,11 +32,10 @@ const SettingsPage: React.FC = () => {
         }
         setIsSubmitting(true);
         try {
-            const response = await fetch('https://formspree.io/f/xanjgkyg', { // VERVANG DE CODE
+            const response = await fetch('https://formspree.io/f/xanjgkyg', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    // 2. DE FIX ZIT HIER: Gebruikt nu de correcte 'user' variabele.
                     email: user?.email || 'Niet ingelogd',
                     message: feedbackMessage 
                 }),
@@ -66,7 +62,7 @@ const SettingsPage: React.FC = () => {
     };
 
     const handleRestoreMovie = (itemToRestore: MediaItem) => {
-        const newNotInterestedList = userData.notInterestedList.filter(m => m.id !== itemToRestore.id);
+        const newNotInterestedList = (userData.notInterestedList || []).filter(m => m.id !== itemToRestore.id);
         updateUserData({ notInterestedList: newNotInterestedList });
         showNotification(`${itemToRestore.title} is weer zichtbaar.`);
     };
@@ -87,8 +83,10 @@ const SettingsPage: React.FC = () => {
                 </div>
             </div>
             
+            {/* TOEGEVOEGD: De genre-selectie is weer terug */}
             <div className="mb-8">
-                <h3 className="text-xl font-semibold mb-4">Favoriete Genres</h3>
+                <h3 className="text-xl font-semibold mb-4">Mijn Voorkeursgenres</h3>
+                <p className="text-sm text-gray-400 mb-4">Selecteer de genres die je over het algemeen leuk vindt. Dit wordt gebruikt om de resultaten op de 'Zoeken'-pagina te filteren.</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {allGenres.map(genre => (
                         <button key={genre} onClick={() => {
@@ -98,36 +96,6 @@ const SettingsPage: React.FC = () => {
                         }} className={`py-2 px-4 rounded-lg font-medium transition-all ${(prefs.genres || []).includes(genre) ? 'bg-blue-600' : 'bg-gray-700 hover:bg-gray-600'}`}>
                             {genre}
                         </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Thema (Achtergrond & Tekst)</h3>
-                <p className="text-sm text-gray-400 mb-3">Donkere Thema's</p>
-                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
-                    {darkThemes.map(theme => (
-                        <div key={theme.name} className="flex flex-col items-center gap-2">
-                            <button 
-                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
-                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-600'}`}
-                                title={theme.name}
-                            />
-                            <span className="text-xs">{theme.name}</span>
-                        </div>
-                    ))}
-                </div>
-                <p className="text-sm text-gray-400 mt-6 mb-3">Lichte Thema's</p>
-                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
-                    {lightThemes.map(theme => (
-                        <div key={theme.name} className="flex flex-col items-center gap-2">
-                            <button 
-                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
-                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-900'}`}
-                                title={theme.name}
-                            />
-                             <span className="text-xs">{theme.name}</span>
-                        </div>
                     ))}
                 </div>
             </div>
@@ -146,11 +114,7 @@ const SettingsPage: React.FC = () => {
                     className="w-full p-3 rounded bg-gray-700 text-white min-h-[120px] border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                 />
-                <button 
-                    type="submit" 
-                    disabled={isSubmitting}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-500"
-                >
+                <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-500">
                     {isSubmitting ? 'Versturen...' : 'Verstuur Feedback'}
                 </button>
             </form>
@@ -164,7 +128,7 @@ const SettingsPage: React.FC = () => {
                             <button onClick={() => handleRestoreMovie(item)} className="text-sm bg-green-600 px-2 py-1 rounded">Herstellen</button>
                         </div>
                     ))}
-                    {userData.notInterestedList?.length === 0 && <p className="text-gray-400">Je hebt geen films of series verborgen.</p>}
+                    {(userData.notInterestedList?.length || 0) === 0 && <p className="text-gray-400">Je hebt geen films of series verborgen.</p>}
                 </div>
              </div>
         </div>
