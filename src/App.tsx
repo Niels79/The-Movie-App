@@ -1,7 +1,7 @@
 // FILE: src/App.tsx
 import React, { useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { useAuth, defaultUserData } from './context/AuthContext';
+import { useAuth } from './context/AuthContext';
 import SearchPage from './pages/SearchPage';
 import ListsPage from './pages/ListsPage';
 import RecommendationsPage from './pages/RecommendationsPage';
@@ -20,15 +20,13 @@ const MediaTypeToggle = () => {
 };
 
 function App() {
-  const { user, loading, login, logout, userData, notification, mediaType } = useAuth();
+  const { user, loading, login, logout, notification, mediaType } = useAuth();
   const location = useLocation();
 
+  // AANGEPAST: De useEffect voor thema's is verwijderd om een vast thema te gebruiken.
   useEffect(() => {
-    document.body.className = '';
-    const prefs = { ...defaultUserData.preferences, ...userData.preferences };
-    document.body.classList.add(prefs.backgroundColor);
-    document.body.classList.add(prefs.textColor);
-  }, [userData.preferences]);
+    document.body.className = 'bg-gray-900 text-white';
+  }, []);
 
   if (loading) { return ( <div className="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center"><svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><p className="mt-4">Laden...</p></div> ); }
   if (!user) { return ( <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center text-white p-4 text-center"><h1 className="text-4xl font-bold mb-2">🎬 The Movie & Series App</h1><p className="text-lg text-gray-400 mb-8">Jouw persoonlijke assistent. Log in om je lijsten op te slaan en te synchroniseren.</p><button onClick={login} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center">Inloggen met Google</button></div> ); }
@@ -38,8 +36,7 @@ function App() {
   const appTitle = mediaType === 'movie' ? 'The Movie App' : 'The Series App';
 
   return (
-    // DE FIX ZIT HIER: pt-8 voegt de lege ruimte bovenaan toe.
-    <div className="pt-8 min-h-screen font-sans transition-colors duration-500">
+    <div className="pt-8 min-h-screen font-sans">
       <header className="bg-gray-800 p-4 shadow-md sticky top-0 z-20">
         <div className="container mx-auto flex justify-between items-center">
           <div className="text-xl md:text-2xl font-bold text-white">{appTitle}</div>

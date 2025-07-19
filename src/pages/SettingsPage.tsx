@@ -4,20 +4,6 @@ import { useAuth, type UserPreferences, type MediaItem } from '../context/AuthCo
 
 const allGenres = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Documentaire", "Drama", "Familie", "Fantasy", "Geschiedenis", "Horror", "Muziek", "Mysterie", "Romantiek", "Sciencefiction", "TV Film", "Thriller", "Oorlog", "Western"];
 
-const darkThemes = [
-    { name: 'Antraciet', bg: 'bg-gray-800', text: 'text-white' },
-    { name: 'Nachtblauw', bg: 'bg-slate-900', text: 'text-slate-200' },
-    { name: 'Woudgroen', bg: 'bg-emerald-950', text: 'text-emerald-100' },
-    { name: 'Marineblauw', bg: 'bg-blue-950', text: 'text-blue-200' },
-];
-
-const lightThemes = [
-    { name: 'Zeeblauw', bg: 'bg-cyan-100', text: 'text-cyan-900' },
-    { name: 'Goudgeel', bg: 'bg-amber-400', text: 'text-white' },
-    { name: 'Zachtgroen', bg: 'bg-teal-50', text: 'text-teal-900' },
-    { name: 'Lichtgrijs', bg: 'bg-slate-200', text: 'text-slate-800' },
-];
-
 const SettingsPage: React.FC = () => {
     const { user, userData, updateUserData, showNotification } = useAuth();
     const [prefs, setPrefs] = useState<UserPreferences>(userData.preferences);
@@ -43,9 +29,7 @@ const SettingsPage: React.FC = () => {
             if (response.ok) {
                 showNotification("Bedankt voor je feedback!");
                 setFeedbackMessage('');
-            } else {
-                throw new Error('Form submission failed');
-            }
+            } else { throw new Error('Form submission failed'); }
         } catch (error) {
             showNotification("Er ging iets mis. Probeer het later opnieuw.");
         }
@@ -83,7 +67,6 @@ const SettingsPage: React.FC = () => {
                 </div>
             </div>
             
-            {/* TOEGEVOEGD: De genre-selectie is weer terug */}
             <div className="mb-8">
                 <h3 className="text-xl font-semibold mb-4">Mijn Voorkeursgenres</h3>
                 <p className="text-sm text-gray-400 mb-4">Selecteer de genres die je over het algemeen leuk vindt. Dit wordt gebruikt om de resultaten op de 'Zoeken'-pagina te filteren.</p>
@@ -100,35 +83,7 @@ const SettingsPage: React.FC = () => {
                 </div>
             </div>
 
-            <div className="mb-8">
-                <h3 className="text-xl font-semibold text-white mb-4">Thema (Achtergrond & Tekst)</h3>
-                <p className="text-sm text-gray-400 mb-3">Donkere Thema's</p>
-                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
-                    {darkThemes.map(theme => (
-                        <div key={theme.name} className="flex flex-col items-center gap-2">
-                            <button 
-                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
-                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-600'}`}
-                                title={theme.name}
-                            />
-                            <span className="text-xs">{theme.name}</span>
-                        </div>
-                    ))}
-                </div>
-                <p className="text-sm text-gray-400 mt-6 mb-3">Lichte Thema's</p>
-                <div className="flex flex-wrap justify-center sm:justify-around items-center gap-4">
-                    {lightThemes.map(theme => (
-                        <div key={theme.name} className="flex flex-col items-center gap-2">
-                            <button 
-                                onClick={() => setPrefs({...prefs, backgroundColor: theme.bg, textColor: theme.text})} 
-                                className={`w-12 h-12 rounded-full ${theme.bg} border-2 transition-all ${prefs.backgroundColor === theme.bg ? 'border-green-400 scale-110' : 'border-gray-900'}`}
-                                title={theme.name}
-                            />
-                             <span className="text-xs">{theme.name}</span>
-                        </div>
-                    ))}
-                </div>
-            </div>
+            {/* DE SECTIE VOOR THEMA'S IS HIER VERWIJDERD */}
 
             <div className="flex justify-end">
                 <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-3 px-6 rounded-lg">Instellingen Opslaan</button>
