@@ -1,6 +1,6 @@
 // FILE: src/pages/RecommendationsPage.tsx
-import React, { useState, useEffect, useMemo } from 'react';
-import { useAuth, type MediaItem } from '../context/AuthContext';
+import React, { useState, useEffect, useMemo } from 'react'; // 'useMemo' is hier toegevoegd
+import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext'; // 'SeenMovie' is hier toegevoegd
 import { MovieCard } from '../components/MovieCard';
 
 const TMDB_API_KEY_REC = "3223e3fb3a787e27ce5ca70cccbdb3bd";
@@ -14,7 +14,7 @@ const formatApiResultsRec = (results: any[], media_type: 'movie' | 'tv', genreMa
         title: item.title || item.name,
         rating: item.vote_average.toFixed(1),
         poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
-        genre: item.genre_ids.map((id: number) => reversedGenreMap[id]).filter(Boolean).join(', '),
+        genre: item.genre_ids.map((id: number) => reversedGenreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
         overview: item.overview,
         media_type: media_type,
         release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
@@ -28,15 +28,11 @@ const RecommendationsPage: React.FC = () => {
     const currentYear = new Date().getFullYear();
     const [startYear, setStartYear] = useState(1970);
     const [endYear, setEndYear] = useState(currentYear);
-    
-    // =======================================================================
-    // 1. DE FIX: We slaan de ruwe resultaten op in een aparte state.
-    // =======================================================================
     const [foundRecs, setFoundRecs] = useState<MediaItem[]>([]);
 
     useEffect(() => {
         setSelectedGenres([]);
-        setFoundRecs([]); // Maak ook de resultaten leeg
+        setFoundRecs([]);
     }, [mediaType]);
     
     const handleGenreToggle = (genre: string) => {
@@ -47,14 +43,16 @@ const RecommendationsPage: React.FC = () => {
 
     const findRecommendations = async () => {
         setIsLoading(true);
-        setFoundRecs([]); // Maak de vorige resultaten leeg voor een nieuwe zoekopdracht
+        setFoundRecs([]);
         const DESIRED_RESULTS = 8;
         let finalRecs: MediaItem[] = [];
         let currentPage = 1;
+
+        // DE FIX ZIT HIER: De types (SeenMovie, MediaItem) zijn toegevoegd om de fout op te lossen.
         const excludedIds = new Set([
-            ...(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id) || []),
-            ...(userData.watchlist?.filter(i => i).map(i => i.id) || []),
-            ...(userData.notInterestedList?.filter(i => i).map(i => i.id) || [])
+            ...(userData.seenList?.filter((item: SeenMovie) => item && item.movie).map((item: SeenMovie) => item.movie.id) || []),
+            ...(userData.watchlist?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || []),
+            ...(userData.notInterestedList?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || [])
         ]);
 
         try {
@@ -71,6 +69,7 @@ const RecommendationsPage: React.FC = () => {
 
                 const res = await fetch(apiUrl);
                 if (!res.ok) break;
+
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
                 const validItems = fetchedItems.filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore);
@@ -83,19 +82,15 @@ const RecommendationsPage: React.FC = () => {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
             const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
-            setFoundRecs(shuffledRecs.slice(0, DESIRED_RESULTS)); // Sla de resultaten op in de nieuwe state
+            setFoundRecs(shuffledRecs.slice(0, DESIRED_RESULTS));
             setIsLoading(false);
         }
     };
     
-    // =======================================================================
-    // 2. DE FIX: useMemo filtert de lijst opnieuw wanneer userData verandert.
-    // =======================================================================
     const recommendationsToShow = useMemo(() => {
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         return foundRecs.filter(item => !notInterestedIds.has(item.id));
     }, [foundRecs, userData.notInterestedList]);
-
 
     const availableGenres = mediaType === 'movie' ? Object.keys(movieGenreMap) : Object.keys(tvGenreMap);
 
@@ -128,7 +123,6 @@ const RecommendationsPage: React.FC = () => {
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
                 </div>
             </div>
-            {/* 3. DE FIX: Gebruik de nieuwe, gefilterde lijst om de kaarten te tonen. */}
             {recommendationsToShow.length > 0 && !isLoading && (
                 <div className="mt-8 text-left">
                      <h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendationsToShow.length} resultaten):</h3>

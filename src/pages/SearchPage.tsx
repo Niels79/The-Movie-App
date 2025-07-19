@@ -86,20 +86,25 @@ const SearchPage: React.FC = () => {
         const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
-        // HAAL DE VOORKEUREN HIER OP
+        
+        // DE FIX ZIT HIER: Haal de voorkeuren op uit de instellingen.
         const preferredGenres = userData.preferences?.genres || [];
 
         return items.filter(item => {
             if (!item) return false;
+            
+            // Filter 1: Verwijder items die al op een lijst staan
             const isOnAnyList = seenIds.has(item.id) || watchlistIds.has(item.id) || notInterestedIds.has(item.id);
             if (isOnAnyList) return false;
 
-            // DE FIX ZIT HIER: Filtert op basis van je voorkeuren uit de instellingen
+            // Filter 2: Verwijder items die niet overeenkomen met je voorkeursgenres
             if (preferredGenres.length > 0) {
                 const itemGenres = item.genre.split(', ');
                 const hasPreferredGenre = preferredGenres.some(preferredGenre => itemGenres.includes(preferredGenre));
                 if (!hasPreferredGenre) return false;
             }
+
+            // Als alle filters zijn gepasseerd, toon het item
             return true;
         });
     }, [items, userData]);
