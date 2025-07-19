@@ -67,6 +67,7 @@ const SettingsPage: React.FC = () => {
                 </div>
             </div>
             
+            {/* TOEGEVOEGD: De genre-selectie is weer terug */}
             <div className="mb-8">
                 <h3 className="text-xl font-semibold mb-4">Mijn Voorkeursgenres</h3>
                 <p className="text-sm text-gray-400 mb-4">Selecteer de genres die je over het algemeen leuk vindt. Dit wordt gebruikt om de resultaten op de 'Zoeken'-pagina te filteren.</p>
@@ -82,8 +83,6 @@ const SettingsPage: React.FC = () => {
                     ))}
                 </div>
             </div>
-
-            {/* DE SECTIE VOOR THEMA'S IS HIER VERWIJDERD */}
 
             <div className="flex justify-end">
                 <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-3 px-6 rounded-lg">Instellingen Opslaan</button>

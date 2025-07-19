@@ -83,43 +83,42 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        // DEZE LOGICA IS NU HERSTELD NAAR DE CORRECTE VERSIE
         const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
-        return items.filter(item => item && !seenIds.has(item.id) && !watchlistIds.has(item.id) && !notInterestedIds.has(item.id));
+        // HAAL DE VOORKEUREN HIER OP
+        const preferredGenres = userData.preferences?.genres || [];
+
+        return items.filter(item => {
+            if (!item) return false;
+            const isOnAnyList = seenIds.has(item.id) || watchlistIds.has(item.id) || notInterestedIds.has(item.id);
+            if (isOnAnyList) return false;
+
+            // DE FIX ZIT HIER: Filtert op basis van je voorkeuren uit de instellingen
+            if (preferredGenres.length > 0) {
+                const itemGenres = item.genre.split(', ');
+                const hasPreferredGenre = preferredGenres.some(preferredGenre => itemGenres.includes(preferredGenre));
+                if (!hasPreferredGenre) return false;
+            }
+            return true;
+        });
     }, [items, userData]);
 
     return (
         <div>
             <div className="mb-8 flex space-x-2">
                 <div className="relative w-full">
-                    <input 
-                        type="text" 
-                        placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} 
-                        value={searchTerm} 
-                        onChange={e => setSearchTerm(e.target.value)} 
-                        onKeyPress={e => e.key === 'Enter' && handleSearch()} 
-                        className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white"
-                    />
+                    <input type="text" placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white" />
                     {searchTerm && (
-                        <button 
-                            onClick={() => setSearchTerm('')} 
-                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
-                        >
-                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                        <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white">
+                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     )}
                 </div>
                 <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg flex-shrink-0">Zoek</button>
             </div>
-            {itemsToShow.length === 0 && !isLoading ?
-(<p className="text-white text-center">Geen resultaten gevonden.</p>) : (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}</div>)}
-            
-            <div className="text-center mt-8 pb-16">{isLoading && items.length > 0 ?
-(<p className="text-white">Meer resultaten laden...</p>) : (hasMore && <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">Laad Meer</button>)}</div>
+            {itemsToShow.length === 0 && !isLoading ? (<p className="text-white text-center">Geen resultaten gevonden.</p>) : (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}</div>)}
+            <div className="text-center mt-8 pb-16">{isLoading && items.length > 0 ? (<p className="text-white">Meer resultaten laden...</p>) : (hasMore && <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">Laad Meer</button>)}</div>
         </div>
     );
 };
