@@ -1,5 +1,5 @@
 // FILE: src/pages/RecommendationsPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 
@@ -23,16 +23,20 @@ const formatApiResultsRec = (results: any[], media_type: 'movie' | 'tv', genreMa
 
 const RecommendationsPage: React.FC = () => {
     const { userData, mediaType } = useAuth();
-    const [recommendations, setRecommendations] = useState<MediaItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
     const currentYear = new Date().getFullYear();
     const [startYear, setStartYear] = useState(1970);
     const [endYear, setEndYear] = useState(currentYear);
+    
+    // =======================================================================
+    // 1. DE FIX: We slaan de ruwe resultaten op in een aparte state.
+    // =======================================================================
+    const [foundRecs, setFoundRecs] = useState<MediaItem[]>([]);
 
     useEffect(() => {
         setSelectedGenres([]);
-        setRecommendations([]);
+        setFoundRecs([]); // Maak ook de resultaten leeg
     }, [mediaType]);
     
     const handleGenreToggle = (genre: string) => {
@@ -43,38 +47,22 @@ const RecommendationsPage: React.FC = () => {
 
     const findRecommendations = async () => {
         setIsLoading(true);
-        setRecommendations([]);
-
+        setFoundRecs([]); // Maak de vorige resultaten leeg voor een nieuwe zoekopdracht
         const DESIRED_RESULTS = 8;
-        let potentialRecs: MediaItem[] = [];
+        let finalRecs: MediaItem[] = [];
         let currentPage = 1;
-
         const excludedIds = new Set([
             ...(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id) || []),
             ...(userData.watchlist?.filter(i => i).map(i => i.id) || []),
             ...(userData.notInterestedList?.filter(i => i).map(i => i.id) || [])
         ]);
-        
-        // =======================================================================
-        // 1. SLIMME ANALYSE: Bepaal de favoriete genres van de gebruiker.
-        // =======================================================================
-        const genreScores: { [key: string]: number } = {};
-        const highlyRatedItems = userData.seenList?.filter(item => item && item.userRating >= 7);
-        highlyRatedItems?.forEach(item => {
-            item.movie.genre.split(', ').forEach(genre => {
-                if (genre) {
-                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); // Een 10 geeft +4, een 7 geeft +1
-                }
-            });
-        });
 
         try {
-            while (potentialRecs.length < 50 && currentPage < 10) { // Haal een grotere pool op
+            while (finalRecs.length < DESIRED_RESULTS && currentPage < 15) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
-                
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
-                if (genreIds) apiUrl += `&with_genres=${genreIds}`;
+                if (genreIds) { apiUrl += `&with_genres=${genreIds}`; }
                 
                 const releaseDateGteParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
                 const releaseDateLteParam = mediaType === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte';
@@ -83,43 +71,31 @@ const RecommendationsPage: React.FC = () => {
 
                 const res = await fetch(apiUrl);
                 if (!res.ok) break;
-
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
-                potentialRecs.push(...fetchedItems);
+                const validItems = fetchedItems.filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore);
+                finalRecs.push(...validItems);
 
                 if (data.page >= data.total_pages) break;
                 currentPage++;
             }
-            
-            // =======================================================================
-            // 2. SLIMME SCORING: Geef elke film een persoonlijke relevantiescore.
-            // =======================================================================
-            const scoredRecs = potentialRecs
-                .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
-                .map(item => {
-                    let score = 0;
-                    // Boost de score op basis van jouw favoriete genres
-                    item.genre.split(', ').forEach(genre => {
-                        if (genreScores[genre]) {
-                            score += genreScores[genre];
-                        }
-                    });
-                    // Voeg de publieke rating toe als een kleinere factor
-                    score += parseFloat(item.rating) / 4;
-                    return { ...item, relevanceScore: score };
-                });
-            
-            // Sorteer op de nieuwe relevantiescore en pak de beste 8
-            const finalRecs = scoredRecs.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, DESIRED_RESULTS);
-            setRecommendations(finalRecs);
-
         } catch (error) {
             console.error("Fout bij het ophalen van aanbevelingen:", error);
         } finally {
+            const shuffledRecs = finalRecs.sort(() => 0.5 - Math.random());
+            setFoundRecs(shuffledRecs.slice(0, DESIRED_RESULTS)); // Sla de resultaten op in de nieuwe state
             setIsLoading(false);
         }
     };
+    
+    // =======================================================================
+    // 2. DE FIX: useMemo filtert de lijst opnieuw wanneer userData verandert.
+    // =======================================================================
+    const recommendationsToShow = useMemo(() => {
+        const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
+        return foundRecs.filter(item => !notInterestedIds.has(item.id));
+    }, [foundRecs, userData.notInterestedList]);
+
 
     const availableGenres = mediaType === 'movie' ? Object.keys(movieGenreMap) : Object.keys(tvGenreMap);
 
@@ -152,7 +128,15 @@ const RecommendationsPage: React.FC = () => {
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
                 </div>
             </div>
-            {recommendations.length > 0 && !isLoading && (<div className="mt-8 text-left"><h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendations.length} resultaten):</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{recommendations.map(item => <MovieCard key={item.id} movie={item} />)}</div></div>)}
+            {/* 3. DE FIX: Gebruik de nieuwe, gefilterde lijst om de kaarten te tonen. */}
+            {recommendationsToShow.length > 0 && !isLoading && (
+                <div className="mt-8 text-left">
+                     <h3 className="text-2xl font-bold mb-4 text-white">Speciaal voor jou ({recommendationsToShow.length} resultaten):</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        {recommendationsToShow.map(item => <MovieCard key={item.id} movie={item} />)}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

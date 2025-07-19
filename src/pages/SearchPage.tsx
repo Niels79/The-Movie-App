@@ -82,25 +82,12 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
-        const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
+        // =======================================================================
+        // DE FIX ZIT HIER: We filteren alleen nog op de 'niet geïnteresseerd'-lijst.
+        // Items op de 'gezien'- of 'kijk'-lijst blijven zichtbaar.
+        // =======================================================================
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
-        // HAAL DE VOORKEUREN HIER OP
-        const preferredGenres = userData.preferences?.genres || [];
-
-        return items.filter(item => {
-            if (!item) return false;
-            const isOnAnyList = seenIds.has(item.id) || watchlistIds.has(item.id) || notInterestedIds.has(item.id);
-            if (isOnAnyList) return false;
-
-            // DE FIX ZIT HIER: Filtert op basis van je voorkeuren uit de instellingen
-            if (preferredGenres.length > 0) {
-                const itemGenres = item.genre.split(', ');
-                const hasPreferredGenre = preferredGenres.some(preferredGenre => itemGenres.includes(preferredGenre));
-                if (!hasPreferredGenre) return false;
-            }
-            return true;
-        });
+        return items.filter(item => item && !notInterestedIds.has(item.id));
     }, [items, userData]);
 
     return (
