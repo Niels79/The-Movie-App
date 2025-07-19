@@ -38,6 +38,7 @@ function App() {
   const appTitle = mediaType === 'movie' ? 'The Movie App' : 'The Series App';
 
   return (
+    // DE FIX ZIT HIER: pt-8 voegt de lege ruimte bovenaan toe.
     <div className="pt-8 min-h-screen font-sans transition-colors duration-500">
       <header className="bg-gray-800 p-4 shadow-md sticky top-0 z-20">
         <div className="container mx-auto flex justify-between items-center">
@@ -59,12 +60,10 @@ function App() {
         <TopNavButtonMobile to="/settings" label="Meer" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z" /></svg>} />
       </nav>
       {notification && ( <div className="fixed top-20 right-5 bg-green-500 text-white py-2 px-5 rounded-lg shadow-lg z-30 animate-pulse">{notification}</div> )}
-      
       <main className="container mx-auto p-4 md:p-8">
         <Routes>
           <Route path="/" element={<SearchPage />} />
           <Route path="/lists" element={<ListsPage />} />
-          {/* DE FIX ZIT HIER: De overbodige 'label' prop is verwijderd. */}
           <Route path="/recommendations" element={<RecommendationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

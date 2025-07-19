@@ -8,14 +8,7 @@ const genreMap: { [key: number]: string } = { 28: "Actie", 12: "Avontuur", 16: "
 
 const formatApiResults = (results: any[], media_type: 'movie' | 'tv'): MediaItem[] => {
     return results.filter(item => item && item.poster_path && item.vote_count > 10).map(item => ({
-        id: item.id,
-        title: item.title || item.name, 
-        rating: item.vote_average.toFixed(1),
-        poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
-        genre: item.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
-        overview: item.overview,
-        media_type: media_type,
-        release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
+        id: item.id, title: item.title || item.name, rating: item.vote_average.toFixed(1), poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`, genre: item.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend', overview: item.overview, media_type: media_type, release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
     }));
 };
 
@@ -28,11 +21,9 @@ const SearchPage: React.FC = () => {
     const [hasMore, setHasMore] = useState(true);
     const [activeSearchTerm, setActiveSearchTerm] = useState('');
 
-    // EFFECT 1: Laadt de staat uit localStorage of haalt de eerste data op
     useEffect(() => {
         const storageKey = `searchPageState_${mediaType}`;
         const savedState = localStorage.getItem(storageKey);
-
         if (savedState) {
             try {
                 const { savedItems, savedPage, savedHasMore, savedActiveSearchTerm } = JSON.parse(savedState);
@@ -41,66 +32,50 @@ const SearchPage: React.FC = () => {
                 setHasMore(savedHasMore !== false);
                 setActiveSearchTerm(savedActiveSearchTerm || '');
                 setSearchTerm(savedActiveSearchTerm || '');
-            } catch (e) {
-                fetchInitialItems(''); // Laad opnieuw bij corrupte data
-            }
-        } else {
-            fetchInitialItems('');
-        }
+            } catch (e) { fetchInitialItems(''); }
+        } else { fetchInitialItems(''); }
     }, [mediaType]);
 
-    // EFFECT 2: Slaat de huidige staat op in localStorage bij wijzigingen
     useEffect(() => {
         const storageKey = `searchPageState_${mediaType}`;
         const stateToSave = { savedItems: items, savedPage: page, savedHasMore: hasMore, savedActiveSearchTerm: activeSearchTerm };
-        // Sla alleen op als er items zijn om een lege pagina te voorkomen
         if (items.length > 0) {
             localStorage.setItem(storageKey, JSON.stringify(stateToSave));
         }
     }, [items, page, hasMore, activeSearchTerm, mediaType]);
 
-    // Functie om de allereerste pagina op te halen (populair of zoekopdracht)
     const fetchInitialItems = async (term: string) => {
         setIsLoading(true);
         const isSearching = term.trim() !== '';
-        const apiUrl = isSearching 
-            ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=nl-NL&page=1`
-            : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`;
-
+        const apiUrl = isSearching ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=nl-NL&page=1` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`;
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
             setItems(formatApiResults(data.results || [], mediaType));
             setPage(1);
             setHasMore(data.page < data.total_pages);
-        } catch (error) { console.error("Fout bij ophalen initiële items:", error); }
+        } catch (error) { console.error("Fout bij ophalen items:", error); }
         setIsLoading(false);
     };
 
-    // Functie voor de zoekknop
     const handleSearch = () => {
         const storageKey = `searchPageState_${mediaType}`;
-        localStorage.removeItem(storageKey); // Verwijder oude opgeslagen staat
+        localStorage.removeItem(storageKey);
         setActiveSearchTerm(searchTerm);
-        fetchInitialItems(searchTerm); // Start een nieuwe zoekopdracht
+        fetchInitialItems(searchTerm);
     };
 
-    // Functie voor de 'Laad Meer' knop
     const handleLoadMore = async () => {
         if (isLoading || !hasMore) return;
         setIsLoading(true);
-
         const nextPage = page + 1;
         const isSearching = activeSearchTerm.trim() !== '';
-        const apiUrl = isSearching 
-            ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=nl-NL&page=${nextPage}`
-            : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=${nextPage}`;
-        
+        const apiUrl = isSearching ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=nl-NL&page=${nextPage}` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=${nextPage}`;
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
             const newItems = formatApiResults(data.results || [], mediaType);
-            setItems(prevItems => [...prevItems, ...newItems]); // Voeg nieuwe items toe aan de lijst
+            setItems(prevItems => [...prevItems, ...newItems]);
             setPage(nextPage);
             setHasMore(data.page < data.total_pages);
         } catch (error) { console.error("Fout bij laden van meer items:", error); }
@@ -117,13 +92,34 @@ const SearchPage: React.FC = () => {
     return (
         <div>
             <div className="mb-8 flex space-x-2">
-                <input type="text" placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSearch()} className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white" />
+                {/* DE FIX ZIT HIER: De div en de knop voor het kruisje zijn teruggeplaatst. */}
+                <div className="relative w-full">
+                    <input 
+                        type="text" 
+                        placeholder={`Zoek een ${mediaType === 'movie' ? 'film' : 'serie'}...`} 
+                        value={searchTerm} 
+                        onChange={e => setSearchTerm(e.target.value)} 
+                        onKeyPress={e => e.key === 'Enter' && handleSearch()} 
+                        className="w-full p-4 pr-10 bg-gray-800 border-2 border-gray-700 rounded-lg text-white"
+                    />
+                    {searchTerm && (
+                        <button 
+                            onClick={() => setSearchTerm('')} 
+                            className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                        >
+                            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
                 <button onClick={handleSearch} className="bg-blue-600 text-white p-4 rounded-lg flex-shrink-0">Zoek</button>
             </div>
             {itemsToShow.length === 0 && !isLoading ? (<p className="text-white text-center">Geen resultaten gevonden.</p>) : (<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">{itemsToShow.map(item => <MovieCard key={item.id} movie={item} />)}</div>)}
-            <div className="text-center mt-8">{isLoading && items.length > 0 ? (<p className="text-white">Meer resultaten laden...</p>) : (hasMore && <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">Laad Meer</button>)}</div>
+            
+            {/* DE FIX ZIT HIER: pb-16 (padding-bottom) toegevoegd voor extra ruimte. */}
+            <div className="text-center mt-8 pb-16">{isLoading && items.length > 0 ? (<p className="text-white">Meer resultaten laden...</p>) : (hasMore && <button onClick={handleLoadMore} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-lg">Laad Meer</button>)}</div>
         </div>
     );
 };
-
 export default SearchPage;
