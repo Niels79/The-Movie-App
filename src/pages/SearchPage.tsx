@@ -83,24 +83,33 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        // DE FIX ZIT HIER: We filteren alleen nog op de 'niet geïnteresseerd'-lijst
-        // en je voorkeursgenres. Items op de 'gezien'- of 'kijk'-lijst blijven zichtbaar.
+        // Maak sets van alle ID's die verborgen moeten worden.
+        // Dit is veel efficiënter dan filteren met .find() of .some() in een loop.
+        const seenIds = new Set(userData.seenList?.filter(i => i?.movie).map(i => i.movie.id));
+        const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
+
+        // Voeg alle ID's samen in één grote set.
+        const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
+
         const preferredGenres = userData.preferences?.genres || [];
 
         return items.filter(item => {
             if (!item) return false;
             
-            // Verwijder items die je hebt verborgen
-            if (notInterestedIds.has(item.id)) return false;
+            // Check 1: Staat het item op een van de verborgen lijsten? Zo ja, verberg het.
+            if (excludedIds.has(item.id)) {
+                return false;
+            }
 
-            // Verwijder items die niet overeenkomen met je voorkeursgenres
+            // Check 2: (Bestaande logica) Voldoet het item aan de genrevoorkeuren?
             if (preferredGenres.length > 0) {
                 const itemGenres = item.genre.split(', ').filter(g => g);
                 const matchesAllPrefs = itemGenres.every(genre => preferredGenres.includes(genre));
                 if (!matchesAllPrefs) return false;
             }
             
+            // Als het item alle checks doorstaat, wordt het getoond.
             return true;
         });
     }, [items, userData]);
