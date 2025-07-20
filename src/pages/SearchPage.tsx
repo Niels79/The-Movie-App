@@ -97,8 +97,8 @@ const SearchPage: React.FC = () => {
             // Verwijder items die niet overeenkomen met je voorkeursgenres
             if (preferredGenres.length > 0) {
                 const itemGenres = item.genre.split(', ').filter(g => g);
-                const hasPreferredGenre = preferredGenres.some(preferredGenre => itemGenres.includes(preferredGenre));
-                if (!hasPreferredGenre) return false;
+                const matchesAllPrefs = itemGenres.every(genre => preferredGenres.includes(genre));
+                if (!matchesAllPrefs) return false;
             }
             
             return true;
