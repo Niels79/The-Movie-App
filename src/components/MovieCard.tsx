@@ -10,13 +10,10 @@ interface Provider {
     provider_name: string;
     logo_path: string;
 }
-
-// TOEGEVOEGD: Interface voor een acteur
 interface Actor {
     id: number;
     name: string;
 }
-
 type AvailabilityStatus = 'idle' | 'loading' | 'streaming' | 'cinema' | 'unavailable';
 
 interface MovieCardProps {
@@ -26,38 +23,33 @@ interface MovieCardProps {
 export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const { userData, updateUserData, showNotification } = useAuth();
     const [availability, setAvailability] = useState<{ status: AvailabilityStatus, data: Provider[] }>({ status: 'idle', data: [] });
-    
-    // TOEGEVOEGD: State om de cast op te slaan
     const [cast, setCast] = useState<Actor[]>([]);
+    
+    // <-- WIJZIGING 1: State toevoegen om de 'beoordelingsmodus' te beheren.
+    const [isRating, setIsRating] = useState(false);
 
     const seenItem = userData.seenList?.find(item => item && item.movie && item.movie.id === movie.id);
     const isSeen = !!seenItem;
     const isWatchlist = userData.watchlist?.some(m => m && m.id === movie.id);
 
-    // TOEGEVOEGD: useEffect haalt de cast op als de kaart wordt getoond
     useEffect(() => {
         const fetchCast = async () => {
-            if (!movie?.id) return; // Voorkom een aanroep zonder ID
+            if (!movie?.id) return;
             const type = movie.media_type || 'movie';
-            // Voor series gebruiken we 'aggregate_credits' voor de volledige cast
             const creditsEndpoint = type === 'tv' ? 'aggregate_credits' : 'credits';
-            
             try {
                 const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=nl-NL`);
                 const data = await res.json();
                 if (data.cast && data.cast.length > 0) {
-                    // Pak de top 3 acteurs
                     setCast(data.cast.slice(0, 3));
                 }
             } catch (error) {
                 console.error("Fout bij ophalen van cast:", error);
             }
         };
-
         fetchCast();
     }, [movie.id, movie.media_type]);
-
-
+    
     const fetchAvailability = async () => {
         if (availability.status !== 'idle' || isSeen) return;
         setAvailability({ status: 'loading', data: [] });
@@ -85,13 +77,9 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
             setAvailability({ status: 'unavailable', data: [] });
         }
     };
+    
+    // De oude onAddToSeen is niet meer nodig, we gebruiken handleConfirmSeen.
 
-    const onAddToSeen = () => {
-        const newSeenList = [{ movie, userRating: 0 }, ...(userData.seenList || [])];
-        const newWatchlist = (userData.watchlist || []).filter(m => m && m.id !== movie.id);
-        updateUserData({ seenList: newSeenList, watchlist: newWatchlist });
-        showNotification(`${movie.title} toegevoegd aan 'Gezien'`);
-    };
     const onRateMovie = (rating: number) => {
         const newSeenList = (userData.seenList || []).map(item => {
             if (item && item.movie && item.movie.id === movie.id) {
@@ -102,6 +90,16 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
         updateUserData({ seenList: newSeenList });
         showNotification(`Waardering voor ${movie.title} aangepast`);
     };
+
+    // <-- WIJZIGING 2: Nieuwe functie die wordt aangeroepen nadat een ster is gekozen.
+    const handleConfirmSeen = (rating: number) => {
+        const newSeenList = [{ movie, userRating: rating }, ...(userData.seenList || [])];
+        const newWatchlist = (userData.watchlist || []).filter(m => m && m.id !== movie.id);
+        updateUserData({ seenList: newSeenList, watchlist: newWatchlist });
+        showNotification(`${movie.title} toegevoegd aan 'Gezien'`);
+        setIsRating(false); // Zet de modus terug naar normaal.
+    };
+    
     const onAddToWatchlist = () => {
         const newWatchlist = [...(userData.watchlist || []), movie];
         updateUserData({ watchlist: newWatchlist });
@@ -138,24 +136,23 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                 <div className="flex justify-between items-start gap-2 mb-2">
                     <h3 className="text-lg font-bold flex-grow">{movie.title} ({movie.release_year})</h3>
                     {availability.status === 'idle' && !isSeen && (
-                        <button onClick={fetchAvailability} title="Toon beschikbaarheid" className="flex-shrink-0 p-1 rounded-full hover:bg-gray-700 transition-colors">
+                         <button onClick={fetchAvailability} title="Toon beschikbaarheid" className="flex-shrink-0 p-1 rounded-full hover:bg-gray-700 transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                             </svg>
                         </button>
-                    )}
+                   )}
                 </div>
 
                 <p className="text-yellow-400">⭐ {movie.rating}</p>
                 <p className="text-gray-400 text-sm mb-2">{movie.genre}</p>
 
-                {/* TOEGEVOEGD: Sectie om de cast te tonen */}
                 {cast.length > 0 && (
                     <p className="text-xs text-gray-500 mb-4 truncate">
                         Met: {cast.map(actor => actor.name).join(', ')}
                     </p>
                 )}
-                
+             
                 {availability.status !== 'idle' && (
                     <div className="mb-4 min-h-[50px]">
                         {availability.status === 'loading' && <p className="text-xs text-gray-400">Zoeken...</p>}
@@ -177,8 +174,28 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                     </div>
                 )}
                 
+                {/* <-- WIJZIGING 3: De logica voor de knoppen volledig vernieuwd. */}
                 <div className="mt-auto pt-4 border-t border-gray-700">
-                    {isSeen ? (<button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>) : (<div className="space-y-2"><button onClick={onAddToSeen} className="w-full bg-green-600 text-white py-2 rounded-lg">Gezien</button>{isWatchlist ? <button onClick={onRemoveFromWatchlist} className="w-full bg-orange-600 text-white py-2 rounded-lg">Verwijder van Kijklijst</button> : <button onClick={onAddToWatchlist} className="w-full bg-blue-600 text-white py-2 rounded-lg">Kijklijst</button>}</div>)}
+                    {isSeen ? (
+                        // 1. Al gezien: toont de 'Verwijder'-knop
+                        <button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>
+                    ) : isRating ? (
+                        // 2. Beoordelingsmodus: toont de sterren en een annuleerknop
+                        <div className="my-2">
+                            <p className="text-sm text-center text-gray-300 mb-1">Wat vond je ervan?</p>
+                            <StarRating rating={0} onRate={handleConfirmSeen} />
+                            <button onClick={() => setIsRating(false)} className="w-full text-center text-xs text-gray-400 hover:text-white mt-2">Annuleren</button>
+                        </div>
+                    ) : (
+                        // 3. Standaardmodus: toont 'Gezien' en 'Kijklijst'-knoppen
+                        <div className="space-y-2">
+                            <button onClick={() => setIsRating(true)} className="w-full bg-green-600 text-white py-2 rounded-lg">Gezien</button>
+                            {isWatchlist ? 
+                                <button onClick={onRemoveFromWatchlist} className="w-full bg-orange-600 text-white py-2 rounded-lg">Verwijder van Kijklijst</button> : 
+                                <button onClick={onAddToWatchlist} className="w-full bg-blue-600 text-white py-2 rounded-lg">Kijklijst</button>
+                            }
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
