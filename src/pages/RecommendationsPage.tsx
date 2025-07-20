@@ -58,28 +58,26 @@ const RecommendationsPage: React.FC = () => {
         highlyRatedItems?.forEach(item => {
             item.movie.genre.split(', ').forEach(genre => {
                 if (genre) {
-                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); 
+                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6);
                 }
             });
         });
 
+        // <-- WIJZIGING 1: Bepaal de te gebruiken genres voor de API én de definitieve filter.
+        let genresForFilter: string[] = [];
+        if (selectedGenres.length > 0) {
+            genresForFilter = selectedGenres;
+        } else if (userData.preferences.genres && userData.preferences.genres.length > 0) {
+            genresForFilter = userData.preferences.genres;
+        }
+
         try {
             while (potentialRecs.length < 50 && currentPage < 10) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
-
-                // <-- WIJZIGING: Bepaal welke genres te gebruiken voor de filter.
-                // De selectie op deze pagina overschrijft de instellingen.
-                let genresForFilter: string[] = [];
-                if (selectedGenres.length > 0) {
-                    // 1. Override: Gebruiker heeft handmatig genres op deze pagina gekozen.
-                    genresForFilter = selectedGenres;
-                } else if (userData.preferences.genres && userData.preferences.genres.length > 0) {
-                    // 2. Default: Gebruiker heeft geen genres gekozen, dus pak de voorkeuren uit de instellingen.
-                    genresForFilter = userData.preferences.genres;
-                }
                 
-                // Gebruik deze definitieve lijst om de API-query te bouwen.
-                const genreIds = genresForFilter.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
+                // Gebruik de `genresForFilter` lijst om de API-query te bouwen.
+                // We gebruiken '|' als scheidingsteken voor een OF-relatie (bv. Actie OF Komedie).
+                const genreIds = genresForFilter.map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
                 if (genreIds) { apiUrl += `&with_genres=${genreIds}`; }
@@ -100,6 +98,16 @@ const RecommendationsPage: React.FC = () => {
             
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
+                // <-- WIJZIGING 2: Voeg hier de definitieve, client-side filter toe.
+                .filter(item => {
+                    // Als er geen genre filter actief is, laat alles door.
+                    if (genresForFilter.length === 0) {
+                        return true;
+                    }
+                    // Anders, controleer of het item TENMINSTE ÉÉN van de gekozen genres heeft.
+                    const itemGenres = item.genre.split(', ').filter(g => g);
+                    return itemGenres.some(g => genresForFilter.includes(g));
+                })
                 .map(item => {
                     let score = 0;
                     item.genre.split(', ').forEach(genre => {
