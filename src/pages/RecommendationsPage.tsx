@@ -63,24 +63,20 @@ const RecommendationsPage: React.FC = () => {
             });
         });
 
-        // <-- WIJZIGING 1: Bepaal de te gebruiken genres voor de API én de definitieve filter.
-        let genresForFilter: string[] = [];
-        if (selectedGenres.length > 0) {
-            genresForFilter = selectedGenres;
-        } else if (userData.preferences.genres && userData.preferences.genres.length > 0) {
-            genresForFilter = userData.preferences.genres;
-        }
-
+        // <-- WIJZIGING 1: Bepaal de genres voor de API-aanroep (brede zoekopdracht).
+        // We combineren de genres uit de instellingen en de pagina-selectie voor een brede zoekopdracht.
+        const settingsGenres = userData.preferences.genres || [];
+        const genresForApi = new Set([...settingsGenres, ...selectedGenres]);
+        
         try {
             while (potentialRecs.length < 50 && currentPage < 10) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 
-                // Gebruik de `genresForFilter` lijst om de API-query te bouwen.
-                // We gebruiken '|' als scheidingsteken voor een OF-relatie (bv. Actie OF Komedie).
-                const genreIds = genresForFilter.map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
+                // Gebruik de gecombineerde lijst voor een 'OF' zoekopdracht naar de API.
+                const apiGenreIds = [...genresForApi].map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
-                if (genreIds) { apiUrl += `&with_genres=${genreIds}`; }
+                if (apiGenreIds) { apiUrl += `&with_genres=${apiGenreIds}`; }
                 
                 const releaseDateGteParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';
                 const releaseDateLteParam = mediaType === 'movie' ? 'primary_release_date.lte' : 'first_air_date.lte';
@@ -96,17 +92,20 @@ const RecommendationsPage: React.FC = () => {
                 currentPage++;
             }
             
+            // <-- WIJZIGING 2: Creëer de definitieve 'toegestane' genrelijst en pas de strikte filter toe.
+            const allowedGenres = new Set([...(userData.preferences.genres || []), ...selectedGenres]);
+
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
-                // <-- WIJZIGING 2: Voeg hier de definitieve, client-side filter toe.
+                // Dit is de nieuwe, correcte filterlogica gebaseerd op je voorbeeld:
                 .filter(item => {
-                    // Als er geen genre filter actief is, laat alles door.
-                    if (genresForFilter.length === 0) {
-                        return true;
-                    }
-                    // Anders, controleer of het item TENMINSTE ÉÉN van de gekozen genres heeft.
+                    if (allowedGenres.size === 0) return true; // Als er nergens voorkeuren zijn, alles tonen.
+                    
                     const itemGenres = item.genre.split(', ').filter(g => g);
-                    return itemGenres.some(g => genresForFilter.includes(g));
+                    if (itemGenres.length === 0) return true; // Items zonder genre-info tonen.
+
+                    // Controleer of ELK genre van het item in de 'allowedGenres' lijst staat.
+                    return itemGenres.every(g => allowedGenres.has(g));
                 })
                 .map(item => {
                     let score = 0;
