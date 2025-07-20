@@ -83,23 +83,24 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        const seenIds = new Set(userData.seenList?.filter(i => i && i.movie).map(i => i.movie.id));
-        const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
+        // DE FIX ZIT HIER: We filteren alleen nog op de 'niet geïnteresseerd'-lijst
+        // en je voorkeursgenres. Items op de 'gezien'- of 'kijk'-lijst blijven zichtbaar.
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         const preferredGenres = userData.preferences?.genres || [];
 
         return items.filter(item => {
             if (!item) return false;
-            const isOnAnyList = seenIds.has(item.id) || watchlistIds.has(item.id) || notInterestedIds.has(item.id);
-            if (isOnAnyList) return false;
+            
+            // Verwijder items die je hebt verborgen
+            if (notInterestedIds.has(item.id)) return false;
 
-            // DE FIX ZIT HIER: Past nu een strikt filter toe.
+            // Verwijder items die niet overeenkomen met je voorkeursgenres
             if (preferredGenres.length > 0) {
-                const itemGenres = item.genre.split(', ').filter(g => g); // Verwijder lege genres
-                // Elk genre van de film/serie moet in de voorkeurslijst staan.
-                const matchesAllPrefs = itemGenres.every(genre => preferredGenres.includes(genre));
-                if (!matchesAllPrefs) return false;
+                const itemGenres = item.genre.split(', ').filter(g => g);
+                const hasPreferredGenre = preferredGenres.some(preferredGenre => itemGenres.includes(preferredGenre));
+                if (!hasPreferredGenre) return false;
             }
+            
             return true;
         });
     }, [items, userData]);
