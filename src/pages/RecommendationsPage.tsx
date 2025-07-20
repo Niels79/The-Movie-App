@@ -47,32 +47,40 @@ const RecommendationsPage: React.FC = () => {
         const DESIRED_RESULTS = 8;
         let potentialRecs: MediaItem[] = [];
         let currentPage = 1;
-
         const excludedIds = new Set([
             ...(userData.seenList?.filter((item: SeenMovie) => item && item.movie).map((item: SeenMovie) => item.movie.id) || []),
             ...(userData.watchlist?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || []),
             ...(userData.notInterestedList?.filter((item: MediaItem) => item).map((item: MediaItem) => item.id) || [])
         ]);
         
-        // =======================================================================
-        // 1. SLIMME ANALYSE: Bepaal de favoriete genres op basis van je hoge cijfers.
-        // =======================================================================
         const genreScores: { [key: string]: number } = {};
         const highlyRatedItems = userData.seenList?.filter(item => item && item.userRating >= 7);
         highlyRatedItems?.forEach(item => {
             item.movie.genre.split(', ').forEach(genre => {
                 if (genre) {
-                    // Een hoger cijfer geeft een grotere boost aan het genre
                     genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); 
                 }
             });
         });
 
         try {
-            // Haal een grotere pool van films op om uit te kiezen
             while (potentialRecs.length < 50 && currentPage < 10) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
-                const genreIds = selectedGenres.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
+
+                // <-- WIJZIGING: Bepaal welke genres te gebruiken voor de filter.
+                // De selectie op deze pagina overschrijft de instellingen.
+                let genresForFilter: string[] = [];
+                if (selectedGenres.length > 0) {
+                    // 1. Override: Gebruiker heeft handmatig genres op deze pagina gekozen.
+                    genresForFilter = selectedGenres;
+                } else if (userData.preferences.genres && userData.preferences.genres.length > 0) {
+                    // 2. Default: Gebruiker heeft geen genres gekozen, dus pak de voorkeuren uit de instellingen.
+                    genresForFilter = userData.preferences.genres;
+                }
+                
+                // Gebruik deze definitieve lijst om de API-query te bouwen.
+                const genreIds = genresForFilter.map(name => currentGenreNameMap[name]).filter(Boolean).join(',');
+
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
                 if (genreIds) { apiUrl += `&with_genres=${genreIds}`; }
                 
@@ -86,30 +94,23 @@ const RecommendationsPage: React.FC = () => {
                 const data = await res.json();
                 const fetchedItems = formatApiResultsRec(data.results, mediaType, currentGenreNameMap);
                 potentialRecs.push(...fetchedItems);
-
                 if (data.page >= data.total_pages) break;
                 currentPage++;
             }
             
-            // =======================================================================
-            // 2. SLIMME SCORING: Geef elke film een persoonlijke relevantiescore.
-            // =======================================================================
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
                 .map(item => {
                     let score = 0;
-                    // Geef een boost op basis van jouw favoriete genres
                     item.genre.split(', ').forEach(genre => {
                         if (genreScores[genre]) {
                             score += genreScores[genre];
                         }
                     });
-                    // Voeg de publieke rating toe als een kleinere factor
                     score += parseFloat(item.rating) / 4;
                     return { ...item, relevanceScore: score };
                 });
-            
-            // Sorteer op de nieuwe relevantiescore en pak de beste 8
+
             const finalRecs = scoredRecs.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, DESIRED_RESULTS);
             setFoundRecs(finalRecs);
 
