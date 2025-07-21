@@ -1,8 +1,8 @@
-// FILE: src/components/MovieCard.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { StarRating } from './StarRating';
 
+// AANGEPAST: De API key wordt hier ook gebruikt voor seizoensinformatie.
 const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 
 interface Provider {
@@ -24,13 +24,33 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const { userData, updateUserData, showNotification } = useAuth();
     const [availability, setAvailability] = useState<{ status: AvailabilityStatus, data: Provider[] }>({ status: 'idle', data: [] });
     const [cast, setCast] = useState<Actor[]>([]);
-    
-    // <-- WIJZIGING 1: State toevoegen om de 'beoordelingsmodus' te beheren.
     const [isRating, setIsRating] = useState(false);
+    
+    // <-- WIJZIGING 1: State toevoegen voor het aantal seizoenen.
+    const [seasonCount, setSeasonCount] = useState<number | null>(null);
 
     const seenItem = userData.seenList?.find(item => item && item.movie && item.movie.id === movie.id);
     const isSeen = !!seenItem;
     const isWatchlist = userData.watchlist?.some(m => m && m.id === movie.id);
+
+    useEffect(() => {
+        const fetchSeriesDetails = async () => {
+            // Haal alleen data op als het een serie is.
+            if (movie.media_type === 'tv' && movie.id) {
+                try {
+                    const res = await fetch(`https://api.themoviedb.org/3/tv/${movie.id}?api_key=${TMDB_API_KEY}&language=nl-NL`);
+                    const data = await res.json();
+                    if (data && data.number_of_seasons) {
+                        setSeasonCount(data.number_of_seasons);
+                    }
+                } catch (error) {
+                    console.error("Fout bij ophalen seizoensinfo:", error);
+                }
+            }
+        };
+        
+        fetchSeriesDetails();
+    }, [movie.id, movie.media_type]); // Voer uit als de kaart laadt
 
     useEffect(() => {
         const fetchCast = async () => {
@@ -78,8 +98,6 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
         }
     };
     
-    // De oude onAddToSeen is niet meer nodig, we gebruiken handleConfirmSeen.
-
     const onRateMovie = (rating: number) => {
         const newSeenList = (userData.seenList || []).map(item => {
             if (item && item.movie && item.movie.id === movie.id) {
@@ -91,13 +109,12 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
         showNotification(`Waardering voor ${movie.title} aangepast`);
     };
 
-    // <-- WIJZIGING 2: Nieuwe functie die wordt aangeroepen nadat een ster is gekozen.
     const handleConfirmSeen = (rating: number) => {
         const newSeenList = [{ movie, userRating: rating }, ...(userData.seenList || [])];
         const newWatchlist = (userData.watchlist || []).filter(m => m && m.id !== movie.id);
         updateUserData({ seenList: newSeenList, watchlist: newWatchlist });
         showNotification(`${movie.title} toegevoegd aan 'Gezien'`);
-        setIsRating(false); // Zet de modus terug naar normaal.
+        setIsRating(false);
     };
     
     const onAddToWatchlist = () => {
@@ -145,6 +162,14 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                 </div>
 
                 <p className="text-yellow-400">⭐ {movie.rating}</p>
+                
+                {/* <-- WIJZIGING 2: Toon het aantal seizoenen als het bekend is. --> */}
+                {movie.media_type === 'tv' && seasonCount !== null && (
+                    <p className="text-gray-400 text-sm">
+                        {seasonCount} {seasonCount === 1 ? 'Seizoen' : 'Seizoenen'}
+                    </p>
+                )}
+                
                 <p className="text-gray-400 text-sm mb-2">{movie.genre}</p>
 
                 {cast.length > 0 && (
@@ -174,20 +199,16 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                     </div>
                 )}
                 
-                {/* <-- WIJZIGING 3: De logica voor de knoppen volledig vernieuwd. */}
                 <div className="mt-auto pt-4 border-t border-gray-700">
                     {isSeen ? (
-                        // 1. Al gezien: toont de 'Verwijder'-knop
                         <button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>
                     ) : isRating ? (
-                        // 2. Beoordelingsmodus: toont de sterren en een annuleerknop
                         <div className="my-2">
                             <p className="text-sm text-center text-gray-300 mb-1">Wat vond je ervan?</p>
                             <StarRating rating={0} onRate={handleConfirmSeen} />
                             <button onClick={() => setIsRating(false)} className="w-full text-center text-xs text-gray-400 hover:text-white mt-2">Annuleren</button>
                         </div>
                     ) : (
-                        // 3. Standaardmodus: toont 'Gezien' en 'Kijklijst'-knoppen
                         <div className="space-y-2">
                             <button onClick={() => setIsRating(true)} className="w-full bg-green-600 text-white py-2 rounded-lg">Gezien</button>
                             {isWatchlist ? 
