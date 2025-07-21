@@ -43,7 +43,10 @@ const RecommendationsPage: React.FC = () => {
     const findRecommendations = async () => {
         setIsLoading(true);
         setFoundRecs([]);
-        const DESIRED_RESULTS = 8;
+        
+        // Verhoogd van 8 naar 16 voor meer resultaten
+        const DESIRED_RESULTS = 16;
+        
         let potentialRecs: MediaItem[] = [];
         let currentPage = 1;
         const excludedIds = new Set([
@@ -62,11 +65,7 @@ const RecommendationsPage: React.FC = () => {
             });
         });
 
-        // ======================================================================================
-        // <-- WIJZIGING: SMAAKPROFIEL VERTALEN VOOR SERIES (DEZE CODE DRAAIT ALLEEN VOOR SERIES)
-        // ======================================================================================
-        let effectiveGenreScores = genreScores; // Standaard gebruiken we het ongewijzigde profiel (voor films)
-
+        let effectiveGenreScores = genreScores; 
         if (mediaType === 'tv') {
             const translationMap: { [movieGenre: string]: string } = {
                 'Actie': 'Actie & Avontuur',
@@ -76,31 +75,25 @@ const RecommendationsPage: React.FC = () => {
                 'Oorlog': 'War & Politics',
                 'Familie': 'Kids',
             };
-
             const translatedScores: { [key: string]: number } = {};
             for (const genre in genreScores) {
                 const score = genreScores[genre];
                 const translatedGenre = translationMap[genre];
-
                 if (translatedGenre) {
-                    // Voeg de score toe aan het vertaalde TV-genre
                     translatedScores[translatedGenre] = (translatedScores[translatedGenre] || 0) + score;
                 } else if (tvGenreMap[genre]) {
-                    // Als het al een geldig TV-genre is (bv. 'Drama'), neem de score direct over
                     translatedScores[genre] = (translatedScores[genre] || 0) + score;
                 }
             }
-            effectiveGenreScores = translatedScores; // Gebruik het vertaalde profiel voor series
+            effectiveGenreScores = translatedScores;
         }
-        // ======================================================================================
-        // EINDE VAN DE WIJZIGING
-        // ======================================================================================
-
+        
         const settingsGenres = userData.preferences.genres || [];
         const genresForApi = new Set([...settingsGenres, ...selectedGenres]);
         
         try {
-            while (potentialRecs.length < 50 && currentPage < 10) {
+            // Verhoogd naar 150 en 15 voor een grotere 'visvijver'
+            while (potentialRecs.length < 150 && currentPage < 15) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const apiGenreIds = [...genresForApi].map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
@@ -122,7 +115,6 @@ const RecommendationsPage: React.FC = () => {
             }
             
             const allowedGenres = new Set([...(userData.preferences.genres || []), ...selectedGenres]);
-
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
                 .filter(item => {
@@ -134,7 +126,6 @@ const RecommendationsPage: React.FC = () => {
                 .map(item => {
                     let score = 0;
                     item.genre.split(', ').forEach(genre => {
-                        // Gebruik het effectieve smaakprofiel (vertaald voor series, origineel voor films)
                         if (effectiveGenreScores[genre]) {
                             score += effectiveGenreScores[genre];
                         }
