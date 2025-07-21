@@ -8,10 +8,11 @@ const allGenres = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Docum
 interface AccordionItemProps {
     title: string;
     children: React.ReactNode;
+    startOpen?: boolean; // Optionele prop om standaard open te staan
 }
 
-const AccordionItem: React.FC<AccordionItemProps> = ({ title, children }) => {
-    const [isOpen, setIsOpen] = useState(false);
+const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, startOpen = false }) => {
+    const [isOpen, setIsOpen] = useState(startOpen);
     return (
         <div className="border-b border-gray-700">
             <button 
@@ -113,7 +114,6 @@ const SettingsPage: React.FC = () => {
                 <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-3 px-6 rounded-lg">Instellingen Opslaan</button>
             </div>
             
-            {/* DE NIEUWE SECTIE MET UITLEG */}
             <div className="border-t border-gray-700 pt-8">
                 <h3 className="text-2xl font-bold mb-4">Uitleg over de App</h3>
                 <AccordionItem title="Hoe werken de 'Voorkeursgenres'?">
@@ -122,14 +122,14 @@ const SettingsPage: React.FC = () => {
                     </p>
                 </AccordionItem>
                 <AccordionItem title="Hoe werken de Aanbevelingen?">
-                    <p className="text-sm text-gray-300 space-y-2">
-                        <span>De aanbevelingenpagina is je persoonlijke filmcurator. Het werkt als volgt:</span>
-                        <ul className="list-disc list-inside">
-                            <li><strong>Jouw Smaak is de Basis:</strong> Het algoritme analyseert je 'Gezien'-lijst en geeft een 'boost' aan genres die jij hoge cijfers (7 of hoger) geeft.</li>
-                            <li><strong>Jouw Filters:</strong> De app zoekt naar films en series die passen binnen de periode die je instelt met de jaartal-sliders.</li>
-                            <li><strong>Tijdelijk Overschrijven:</strong> Als je op de aanbevelingenpagina zelf een genre selecteert (bv. 'Komedie'), wordt je algemene voorkeur uit de instellingen voor die ene zoekopdracht genegeerd. Dit geeft je de vrijheid om even buiten je comfortzone te zoeken.</li>
-                        </ul>
-                    </p>
+                     <p className="text-sm text-gray-300 space-y-2">
+                         <span>De aanbevelingenpagina is je persoonlijke filmcurator. Het werkt als volgt:</span>
+                         <ul className="list-disc list-inside">
+                             <li><strong>Jouw Smaak is de Basis:</strong> Het algoritme analyseert je 'Gezien'-lijst en geeft een 'boost' aan genres die jij hoge cijfers (7 of hoger) geeft.</li>
+                             <li><strong>Jouw Filters:</strong> De app zoekt naar films en series die passen binnen de periode die je instelt met de jaartal-sliders.</li>
+                             <li><strong>Tijdelijk Overschrijven:</strong> Als je op de aanbevelingenpagina zelf een genre selecteert (bv. 'Komedie'), wordt je algemene voorkeur uit de instellingen voor die ene zoekopdracht genegeerd. Dit geeft je de vrijheid om even buiten je comfortzone te zoeken.</li>
+                         </ul>
+                     </p>
                 </AccordionItem>
                 {/* DE NIEUWE 'OVER ONS' SECTIE */}
                 <AccordionItem title="Over ons">
@@ -152,23 +152,22 @@ const SettingsPage: React.FC = () => {
                     className="w-full p-3 rounded bg-gray-700 text-white min-h-[120px] border border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                 />
-                <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-500">
-                    {isSubmitting ? 'Versturen...' : 'Verstuur Feedback'}
-                </button>
+                <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-500">{isSubmitting ? 'Versturen...' : 'Verstuur Feedback'}</button>
             </form>
 
-            {/* DE SECTIE 'VERBORGEN ITEMS' IS WEER TERUG */}
+            {/* DE SECTIE 'VERBORGEN ITEMS' IS WEER TERUG EN INKLAPBAAR */}
             <div className="border-t border-gray-700 pt-8">
-                <h3 className="text-xl font-semibold mb-4">Verborgen Items ({userData.notInterestedList?.length || 0})</h3>
-                <div className="space-y-2">
-                     {(userData.notInterestedList || []).map(item => (
-                        <div key={item.id} className="flex justify-between items-center bg-gray-700 p-2 rounded">
-                            <span>{item.title} ({item.media_type === 'movie' ? 'Film' : 'Serie'})</span>
-                            <button onClick={() => handleRestoreMovie(item)} className="text-sm bg-green-600 px-2 py-1 rounded">Herstellen</button>
-                        </div>
-                    ))}
-                    {(userData.notInterestedList?.length || 0) === 0 && <p className="text-gray-400">Je hebt geen films of series verborgen.</p>}
-                </div>
+                 <AccordionItem title={`Verborgen Items (${userData.notInterestedList?.length || 0})`}>
+                    <div className="space-y-2">
+                         {(userData.notInterestedList || []).map(item => (
+                            <div key={item.id} className="flex justify-between items-center bg-gray-700 p-2 rounded">
+                                <span>{item.title} ({item.media_type === 'movie' ? 'Film' : 'Serie'})</span>
+                                <button onClick={() => handleRestoreMovie(item)} className="text-sm bg-green-600 px-2 py-1 rounded">Herstellen</button>
+                            </div>
+                        ))}
+                        {(userData.notInterestedList?.length || 0) === 0 && <p className="text-gray-400">Je hebt geen films of series verborgen.</p>}
+                    </div>
+                 </AccordionItem>
              </div>
         </div>
     );
