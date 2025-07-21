@@ -1,4 +1,3 @@
-// FILE: src/pages/SearchPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
@@ -47,7 +46,6 @@ const SearchPage: React.FC = () => {
     const fetchInitialItems = async (term: string) => {
         setIsLoading(true);
         const isSearching = term.trim() !== '';
-        // GEWIJZIGD: Taalparameter aangepast naar en-US
         const apiUrl = isSearching ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=en-US&page=1` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
         try {
             const res = await fetch(apiUrl);
@@ -70,9 +68,8 @@ const SearchPage: React.FC = () => {
         setIsLoading(true);
         const nextPage = page + 1;
         const isSearching = activeSearchTerm.trim() !== '';
-        // GEWIJZIGD: Taalparameter aangepast naar en-US
         const apiUrl = isSearching ?
-        `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=en-US&page=${nextPage}` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=${nextPage}`;
+`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=en-US&page=${nextPage}` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=${nextPage}`;
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
@@ -85,36 +82,46 @@ const SearchPage: React.FC = () => {
     };
 
     const itemsToShow = useMemo(() => {
-        // Maak sets van alle ID's die verborgen moeten worden.
-        // Dit is veel efficiënter dan filteren met .find() of .some() in een loop.
+        const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         const seenIds = new Set(userData.seenList?.filter(i => i?.movie).map(i => i.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
-        const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
-
-        // Voeg alle ID's samen in één grote set.
         const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
 
-        const preferredGenres = userData.preferences?.genres || [];
+        // <-- WIJZIGING: Vertaal de genrevoorkeuren als we naar series kijken.
+        let preferredGenres = userData.preferences?.genres || [];
+        if (mediaType === 'tv' && preferredGenres.length > 0) {
+            const translationMap: { [movieGenre: string]: string } = {
+                'Actie': 'Actie & Avontuur',
+                'Avontuur': 'Actie & Avontuur',
+                'Sciencefiction': 'Sci-Fi & Fantasy',
+                'Fantasy': 'Sci-Fi & Fantasy',
+                'Oorlog': 'War & Politics',
+                'Familie': 'Kids',
+            };
+            // Gebruik een Set om dubbele waarden te voorkomen (bv. Actie en Avontuur worden beide 'Actie & Avontuur')
+            const tvPreferences = new Set<string>();
+            preferredGenres.forEach(g => tvPreferences.add(translationMap[g] || g));
+            preferredGenres = [...tvPreferences];
+        }
+        // EINDE WIJZIGING
 
         return items.filter(item => {
-            if (!item) return false;
-            
-            // Check 1: Staat het item op een van de verborgen lijsten? Zo ja, verberg het.
-            if (excludedIds.has(item.id)) {
+            if (!item || excludedIds.has(item.id)) {
                 return false;
             }
 
-            // Check 2: (Bestaande logica) Voldoet het item aan de genrevoorkeuren?
             if (preferredGenres.length > 0) {
                 const itemGenres = item.genre.split(', ').filter(g => g);
+                if (itemGenres.length === 0) return true; // Of false, afhankelijk van de wens
+                
+                // Gebruik de (mogelijk vertaalde) voorkeuren voor de check
                 const matchesAllPrefs = itemGenres.every(genre => preferredGenres.includes(genre));
                 if (!matchesAllPrefs) return false;
             }
             
-            // Als het item alle checks doorstaat, wordt het getoond.
             return true;
         });
-    }, [items, userData]);
+    }, [items, userData, mediaType]); // <-- WIJZIGING: mediaType toegevoegd als dependency
 
     return (
         <div>
