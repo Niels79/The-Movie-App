@@ -44,7 +44,6 @@ const RecommendationsPage: React.FC = () => {
         setIsLoading(true);
         setFoundRecs([]);
         
-        // Verhoogd van 8 naar 16 voor meer resultaten
         const DESIRED_RESULTS = 16;
         
         let potentialRecs: MediaItem[] = [];
@@ -92,12 +91,12 @@ const RecommendationsPage: React.FC = () => {
         const genresForApi = new Set([...settingsGenres, ...selectedGenres]);
         
         try {
-            // Verhoogd naar 150 en 15 voor een grotere 'visvijver'
             while (potentialRecs.length < 150 && currentPage < 15) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
                 const apiGenreIds = [...genresForApi].map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
-                let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
+                // GEWIJZIGD: Taalparameter aangepast naar en-US voor Engelse titels
+                let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=en-US&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
                 if (apiGenreIds) { apiUrl += `&with_genres=${apiGenreIds}`; }
                 
                 const releaseDateGteParam = mediaType === 'movie' ? 'primary_release_date.gte' : 'first_air_date.gte';

@@ -35,10 +35,10 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
 
     useEffect(() => {
         const fetchSeriesDetails = async () => {
-            // Haal alleen data op als het een serie is.
             if (movie.media_type === 'tv' && movie.id) {
                 try {
-                    const res = await fetch(`https://api.themoviedb.org/3/tv/${movie.id}?api_key=${TMDB_API_KEY}&language=nl-NL`);
+                    // GEWIJZIGD: Taalparameter aangepast naar en-US
+                    const res = await fetch(`https://api.themoviedb.org/3/tv/${movie.id}?api_key=${TMDB_API_KEY}&language=en-US`);
                     const data = await res.json();
                     if (data && data.number_of_seasons) {
                         setSeasonCount(data.number_of_seasons);
@@ -48,9 +48,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                 }
             }
         };
-        
         fetchSeriesDetails();
-    }, [movie.id, movie.media_type]); // Voer uit als de kaart laadt
+    }, [movie.id, movie.media_type]);
 
     useEffect(() => {
         const fetchCast = async () => {
@@ -58,7 +57,8 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
             const type = movie.media_type || 'movie';
             const creditsEndpoint = type === 'tv' ? 'aggregate_credits' : 'credits';
             try {
-                const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=nl-NL`);
+                // GEWIJZIGD: Taalparameter aangepast naar en-US
+                const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
                 const data = await res.json();
                 if (data.cast && data.cast.length > 0) {
                     setCast(data.cast.slice(0, 3));

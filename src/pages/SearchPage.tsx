@@ -47,7 +47,8 @@ const SearchPage: React.FC = () => {
     const fetchInitialItems = async (term: string) => {
         setIsLoading(true);
         const isSearching = term.trim() !== '';
-        const apiUrl = isSearching ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=nl-NL&page=1` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=1`;
+        // GEWIJZIGD: Taalparameter aangepast naar en-US
+        const apiUrl = isSearching ? `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(term)}&language=en-US&page=1` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
@@ -69,8 +70,9 @@ const SearchPage: React.FC = () => {
         setIsLoading(true);
         const nextPage = page + 1;
         const isSearching = activeSearchTerm.trim() !== '';
+        // GEWIJZIGD: Taalparameter aangepast naar en-US
         const apiUrl = isSearching ?
-`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=nl-NL&page=${nextPage}` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=nl-NL&page=${nextPage}`;
+        `https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(activeSearchTerm)}&language=en-US&page=${nextPage}` : `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=${nextPage}`;
         try {
             const res = await fetch(apiUrl);
             const data = await res.json();
