@@ -8,11 +8,10 @@ const allGenres = ["Actie", "Avontuur", "Animatie", "Komedie", "Misdaad", "Docum
 interface AccordionItemProps {
     title: string;
     children: React.ReactNode;
-    startOpen?: boolean; // Optionele prop om standaard open te staan
 }
 
-const AccordionItem: React.FC<AccordionItemProps> = ({ title, children, startOpen = false }) => {
-    const [isOpen, setIsOpen] = useState(startOpen);
+const AccordionItem: React.FC<AccordionItemProps> = ({ title, children }) => {
+    const [isOpen, setIsOpen] = useState(false);
     return (
         <div className="border-b border-gray-700">
             <button 
@@ -131,7 +130,31 @@ const SettingsPage: React.FC = () => {
                          </ul>
                      </p>
                 </AccordionItem>
-                {/* DE NIEUWE 'OVER ONS' SECTIE */}
+                {/* DE NIEUWE 'UITLEG KNOPPEN' SECTIE */}
+                <AccordionItem title="Hoe werken de knoppen op een kaart?">
+                    <div className="text-sm text-gray-300 space-y-4">
+                        <div>
+                            <h4 className="font-bold">Het Kruisje (×) - Verbergen</h4>
+                            <p>Als je op het kruisje klikt, verdwijnt de kaart direct en wordt de film/serie niet meer aangeraden. Je kunt dit ongedaan maken in de "Verborgen Items"-lijst hieronder.</p>
+                        </div>
+                        <div>
+                            <h4 className="font-bold">De Info-knop (ℹ️) - Waar te Kijken?</h4>
+                            <p>Klik hierop om te zien op welke streamingdienst (Netflix, Disney+, etc.) een titel te zien is, of dat deze nu in de bioscoop draait.</p>
+                        </div>
+                        <div>
+                            <h4 className="font-bold">De 'Gezien'-knop</h4>
+                            <p>Voegt de titel toe aan je 'Gezien'-lijst en geeft je direct de mogelijkheid om een sterren-rating te geven.</p>
+                        </div>
+                        <div>
+                            <h4 className="font-bold">De 'Kijklijst'-knop</h4>
+                            <p>Voegt de titel toe aan je persoonlijke 'Kijklijst', zodat je deze niet vergeet.</p>
+                        </div>
+                        <div>
+                            <h4 className="font-bold">De Sterren-rating</h4>
+                            <p>Nadat een item op 'Gezien' staat, kun je het een persoonlijke score van 1 tot 10 geven. Deze score wordt gebruikt om je aanbevelingen nog slimmer te maken.</p>
+                        </div>
+                    </div>
+                </AccordionItem>
                 <AccordionItem title="Over ons">
                     <div className="text-sm text-gray-300 space-y-3">
                         <p>Deze app is ontworpen om je te helpen navigeren door de eindeloze wereld van films en series, zodat je altijd iets vindt dat bij je past.</p>
@@ -155,7 +178,7 @@ const SettingsPage: React.FC = () => {
                 <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg disabled:bg-gray-500">{isSubmitting ? 'Versturen...' : 'Verstuur Feedback'}</button>
             </form>
 
-            {/* DE SECTIE 'VERBORGEN ITEMS' IS WEER TERUG EN INKLAPBAAR */}
+            {/* DE 'VERBORGEN ITEMS' SECTIE IS NU INKLAPBAAR */}
             <div className="border-t border-gray-700 pt-8">
                  <AccordionItem title={`Verborgen Items (${userData.notInterestedList?.length || 0})`}>
                     <div className="space-y-2">
