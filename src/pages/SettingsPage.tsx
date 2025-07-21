@@ -117,7 +117,7 @@ const SettingsPage: React.FC = () => {
                 <h3 className="text-2xl font-bold mb-4">Uitleg over de App</h3>
                 <AccordionItem title="Hoe werken de 'Voorkeursgenres'?">
                     <p className="text-sm text-gray-300">
-                        De genres die je hierboven selecteert, worden een **algemeen filter** voor de hele app. Als je bijvoorbeeld alleen 'Actie' en 'Thriller' selecteert, zul je op de 'Zoeken'-pagina en in de 'Aanbevelingen' standaard alleen films en series te zien krijgen die minimaal een van deze genres hebben.
+                        De genres die je hierboven selecteert, worden een "algemeen filter" voor de hele app. Als je bijvoorbeeld alleen 'Actie' en 'Thriller' selecteert, zul je op de 'Zoeken'-pagina en in de 'Aanbevelingen' standaard alleen films en series te zien krijgen die minimaal een van deze genres hebben.
                     </p>
                 </AccordionItem>
                 <AccordionItem title="Hoe werken de Aanbevelingen?">
@@ -158,7 +158,7 @@ const SettingsPage: React.FC = () => {
                 <AccordionItem title="Over ons">
                     <div className="text-sm text-gray-300 space-y-3">
                         <p>Deze app is ontworpen om je te helpen navigeren door de eindeloze wereld van films en series, zodat je altijd iets vindt dat bij je past.</p>
-                        <p><strong>Versie:</strong> 1.0.0</p>
+                        <p><strong>Versie:</strong> 1.0.2</p>
                         <p><strong>Ontwikkelaar:</strong> Gemaakt door NK Dutch Labs</p>
                         <p><em>Alle film- en seriedata wordt geleverd door The Movie Database (TMDB). Hartelijk dank aan hun geweldige community en API.</em></p>
                     </div>
