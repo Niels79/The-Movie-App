@@ -1,4 +1,3 @@
-// FILE: src/pages/RecommendationsPage.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
@@ -34,7 +33,7 @@ const RecommendationsPage: React.FC = () => {
         setSelectedGenres([]);
         setFoundRecs([]);
     }, [mediaType]);
-    
+
     const handleGenreToggle = (genre: string) => {
         setSelectedGenres(prev => 
             prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
@@ -58,21 +57,51 @@ const RecommendationsPage: React.FC = () => {
         highlyRatedItems?.forEach(item => {
             item.movie.genre.split(', ').forEach(genre => {
                 if (genre) {
-                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6);
+                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); 
                 }
             });
         });
 
-        // <-- WIJZIGING 1: Bepaal de genres voor de API-aanroep (brede zoekopdracht).
-        // We combineren de genres uit de instellingen en de pagina-selectie voor een brede zoekopdracht.
+        // ======================================================================================
+        // <-- WIJZIGING: SMAAKPROFIEL VERTALEN VOOR SERIES (DEZE CODE DRAAIT ALLEEN VOOR SERIES)
+        // ======================================================================================
+        let effectiveGenreScores = genreScores; // Standaard gebruiken we het ongewijzigde profiel (voor films)
+
+        if (mediaType === 'tv') {
+            const translationMap: { [movieGenre: string]: string } = {
+                'Actie': 'Actie & Avontuur',
+                'Avontuur': 'Actie & Avontuur',
+                'Sciencefiction': 'Sci-Fi & Fantasy',
+                'Fantasy': 'Sci-Fi & Fantasy',
+                'Oorlog': 'War & Politics',
+                'Familie': 'Kids',
+            };
+
+            const translatedScores: { [key: string]: number } = {};
+            for (const genre in genreScores) {
+                const score = genreScores[genre];
+                const translatedGenre = translationMap[genre];
+
+                if (translatedGenre) {
+                    // Voeg de score toe aan het vertaalde TV-genre
+                    translatedScores[translatedGenre] = (translatedScores[translatedGenre] || 0) + score;
+                } else if (tvGenreMap[genre]) {
+                    // Als het al een geldig TV-genre is (bv. 'Drama'), neem de score direct over
+                    translatedScores[genre] = (translatedScores[genre] || 0) + score;
+                }
+            }
+            effectiveGenreScores = translatedScores; // Gebruik het vertaalde profiel voor series
+        }
+        // ======================================================================================
+        // EINDE VAN DE WIJZIGING
+        // ======================================================================================
+
         const settingsGenres = userData.preferences.genres || [];
         const genresForApi = new Set([...settingsGenres, ...selectedGenres]);
         
         try {
             while (potentialRecs.length < 50 && currentPage < 10) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
-                
-                // Gebruik de gecombineerde lijst voor een 'OF' zoekopdracht naar de API.
                 const apiGenreIds = [...genresForApi].map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=nl-NL&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
@@ -92,26 +121,22 @@ const RecommendationsPage: React.FC = () => {
                 currentPage++;
             }
             
-            // <-- WIJZIGING 2: Creëer de definitieve 'toegestane' genrelijst en pas de strikte filter toe.
             const allowedGenres = new Set([...(userData.preferences.genres || []), ...selectedGenres]);
 
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
-                // Dit is de nieuwe, correcte filterlogica gebaseerd op je voorbeeld:
                 .filter(item => {
-                    if (allowedGenres.size === 0) return true; // Als er nergens voorkeuren zijn, alles tonen.
-                    
+                    if (allowedGenres.size === 0) return true;
                     const itemGenres = item.genre.split(', ').filter(g => g);
-                    if (itemGenres.length === 0) return true; // Items zonder genre-info tonen.
-
-                    // Controleer of ELK genre van het item in de 'allowedGenres' lijst staat.
+                    if (itemGenres.length === 0) return true;
                     return itemGenres.every(g => allowedGenres.has(g));
                 })
                 .map(item => {
                     let score = 0;
                     item.genre.split(', ').forEach(genre => {
-                        if (genreScores[genre]) {
-                            score += genreScores[genre];
+                        // Gebruik het effectieve smaakprofiel (vertaald voor series, origineel voor films)
+                        if (effectiveGenreScores[genre]) {
+                            score += effectiveGenreScores[genre];
                         }
                     });
                     score += parseFloat(item.rating) / 4;
@@ -127,7 +152,7 @@ const RecommendationsPage: React.FC = () => {
             setIsLoading(false);
         }
     };
-    
+
     const recommendationsToShow = useMemo(() => {
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         return foundRecs.filter(item => !notInterestedIds.has(item.id));
@@ -141,6 +166,7 @@ const RecommendationsPage: React.FC = () => {
                 <h2 className="text-3xl font-bold mb-4">Jouw Aanbevelingen</h2>
                 <p className="text-gray-400 mb-6">Gebruik de filters om je volgende favoriete {mediaType === 'movie' ? 'film' : 'serie'} te vinden.</p>
             </div>
+            
             <div className="my-8 p-6 bg-gray-800 rounded-lg space-y-6">
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">1. Kies Genres (optioneel)</h3>
@@ -159,6 +185,7 @@ const RecommendationsPage: React.FC = () => {
                         <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{endYear}</span>
                     </div>
                 </div>
+    
                 <div className="text-center pt-4">
                     <h3 className="text-xl font-semibold mb-4 text-center">3. Vind Aanbevelingen</h3>
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
