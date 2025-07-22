@@ -35,7 +35,7 @@ const RecommendationsPage: React.FC = () => {
     }, [mediaType]);
 
     const handleGenreToggle = (genre: string) => {
-        setSelectedGenres(prev => 
+        setSelectedGenres(prev =>
             prev.includes(genre) ? prev.filter(g => g !== genre) : [...prev, genre]
         );
     };
@@ -59,12 +59,12 @@ const RecommendationsPage: React.FC = () => {
         highlyRatedItems?.forEach(item => {
             item.movie.genre.split(', ').forEach(genre => {
                 if (genre) {
-                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6); 
+                    genreScores[genre] = (genreScores[genre] || 0) + (item.userRating - 6);
                 }
             });
         });
 
-        let effectiveGenreScores = genreScores; 
+        let effectiveGenreScores = genreScores;
         if (mediaType === 'tv') {
             const translationMap: { [movieGenre: string]: string } = {
                 'Actie': 'Actie & Avontuur',
@@ -87,15 +87,19 @@ const RecommendationsPage: React.FC = () => {
             effectiveGenreScores = translatedScores;
         }
         
-        const settingsGenres = userData.preferences.genres || [];
-        const genresForApi = new Set([...settingsGenres, ...selectedGenres]);
-        
+        // *** WIJZIGING START ***
+        // Bepaal welke genres te gebruiken. Geef prioriteit aan de selectie op de pagina.
+        // Als er niks is geselecteerd op de pagina, gebruik dan de genres uit de instellingen.
+        const genresToUse = selectedGenres.length > 0 ? selectedGenres : (userData.preferences.genres || []);
+        // *** WIJZIGING EIND ***
+
         try {
             while (potentialRecs.length < 150 && currentPage < 15) {
                 const currentGenreNameMap = mediaType === 'movie' ? movieGenreMap : tvGenreMap;
-                const apiGenreIds = [...genresForApi].map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
+                
+                // Gebruik de nieuwe `genresToUse` variabele voor de API-aanroep
+                const apiGenreIds = genresToUse.map(name => currentGenreNameMap[name]).filter(Boolean).join('|');
 
-                // GEWIJZIGD: Taalparameter aangepast naar en-US voor Engelse titels
                 let apiUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY_REC}&language=en-US&sort_by=popularity.desc&vote_count.gte=100&page=${currentPage}`;
                 if (apiGenreIds) { apiUrl += `&with_genres=${apiGenreIds}`; }
                 
@@ -113,15 +117,13 @@ const RecommendationsPage: React.FC = () => {
                 currentPage++;
             }
             
-            const allowedGenres = new Set([...(userData.preferences.genres || []), ...selectedGenres]);
             const scoredRecs = potentialRecs
                 .filter(item => !excludedIds.has(item.id) && parseFloat(item.rating) >= userData.preferences.imdbScore)
-                .filter(item => {
-                    if (allowedGenres.size === 0) return true;
-                    const itemGenres = item.genre.split(', ').filter(g => g);
-                    if (itemGenres.length === 0) return true;
-                    return itemGenres.every(g => allowedGenres.has(g));
-                })
+                // *** WIJZIGING START ***
+                // Het .every() filter is verwijderd. Het was te streng en onnodig,
+                // omdat de API-aanroep met `with_genres` al garandeert dat de resultaten
+                // minimaal één van de gewenste genres bevatten.
+                // *** WIJZIGING EIND ***
                 .map(item => {
                     let score = 0;
                     item.genre.split(', ').forEach(genre => {
@@ -175,7 +177,7 @@ const RecommendationsPage: React.FC = () => {
                         <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{endYear}</span>
                     </div>
                 </div>
-    
+                
                 <div className="text-center pt-4">
                     <h3 className="text-xl font-semibold mb-4 text-center">3. Vind Aanbevelingen</h3>
                     <button onClick={findRecommendations} disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg disabled:bg-gray-500">{isLoading ? 'Zoeken...' : `Vind Aanbevelingen`}</button>
