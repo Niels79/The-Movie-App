@@ -1,8 +1,8 @@
+// FILE: src/components/MovieCard.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth, type MediaItem } from '../context/AuthContext';
 import { StarRating } from './StarRating';
 
-// AANGEPAST: De API key wordt hier ook gebruikt voor seizoensinformatie.
 const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 
 interface Provider {
@@ -25,49 +25,40 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     const [availability, setAvailability] = useState<{ status: AvailabilityStatus, data: Provider[] }>({ status: 'idle', data: [] });
     const [cast, setCast] = useState<Actor[]>([]);
     const [isRating, setIsRating] = useState(false);
-    
-    // <-- WIJZIGING 1: State toevoegen voor het aantal seizoenen.
     const [seasonCount, setSeasonCount] = useState<number | null>(null);
 
     const seenItem = userData.seenList?.find(item => item && item.movie && item.movie.id === movie.id);
     const isSeen = !!seenItem;
     const isWatchlist = userData.watchlist?.some(m => m && m.id === movie.id);
 
+    // DEZE useEffect HAALT NU ZOWEL CAST ALS SEIZOENSINFO OP IN ÉÉN KEER
     useEffect(() => {
-        const fetchSeriesDetails = async () => {
-            if (movie.media_type === 'tv' && movie.id) {
-                try {
-                    // GEWIJZIGD: Taalparameter aangepast naar en-US
-                    const res = await fetch(`https://api.themoviedb.org/3/tv/${movie.id}?api_key=${TMDB_API_KEY}&language=en-US`);
-                    const data = await res.json();
-                    if (data && data.number_of_seasons) {
-                        setSeasonCount(data.number_of_seasons);
-                    }
-                } catch (error) {
-                    console.error("Fout bij ophalen seizoensinfo:", error);
-                }
-            }
-        };
-        fetchSeriesDetails();
-    }, [movie.id, movie.media_type]);
-
-    useEffect(() => {
-        const fetchCast = async () => {
+        const fetchDetails = async () => {
             if (!movie?.id) return;
             const type = movie.media_type || 'movie';
+            
+            // Gebruik 'append_to_response' om credits direct mee te vragen, wat efficiënter is
             const creditsEndpoint = type === 'tv' ? 'aggregate_credits' : 'credits';
             try {
-                // GEWIJZIGD: Taalparameter aangepast naar en-US
-                const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=en-US`);
+                const res = await fetch(`https://api.themoviedb.org/3/${type}/${movie.id}?api_key=${TMDB_API_KEY}&language=en-US&append_to_response=${creditsEndpoint}`);
                 const data = await res.json();
-                if (data.cast && data.cast.length > 0) {
-                    setCast(data.cast.slice(0, 3));
+
+                // Verwerk seizoenen (alleen voor series)
+                if (type === 'tv' && data && data.number_of_seasons) {
+                    setSeasonCount(data.number_of_seasons);
+                }
+
+                // Verwerk cast
+                const castData = data[creditsEndpoint]?.cast;
+                if (castData && castData.length > 0) {
+                    setCast(castData.slice(0, 3));
                 }
             } catch (error) {
-                console.error("Fout bij ophalen van cast:", error);
+                console.error("Fout bij ophalen details:", error);
             }
         };
-        fetchCast();
+
+        fetchDetails();
     }, [movie.id, movie.media_type]);
     
     const fetchAvailability = async () => {
@@ -141,11 +132,12 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
     return (
         <div className="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col text-white">
             <div className="relative group">
-                <img src={movie.poster} alt={`Poster van ${movie.title}`} className="w-full h-64 object-cover" />
+                {/* DE FIX ZIT HIER: h-64 en object-cover zijn verwijderd voor h-auto */}
+                <img src={movie.poster} alt={`Poster van ${movie.title}`} className="w-full h-auto" />
                 <div className="absolute top-0 left-0 right-0 bottom-0 bg-black bg-opacity-80 text-white p-4 overflow-y-auto opacity-0 group-hover:opacity-100 transition-opacity">
                     <p>{movie.overview}</p>
                 </div>
-                {!isSeen && (
+                {!isSeen && !isRating && (
                     <button onClick={onNotInterested} className="absolute top-2 right-2 z-10 bg-black bg-opacity-40 text-white rounded-full w-7 h-7 hover:bg-opacity-75">&times;</button>
                 )}
             </div>
@@ -160,45 +152,32 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
                         </button>
                    )}
                 </div>
-
                 <p className="text-yellow-400">⭐ {movie.rating}</p>
-                
-                {/* <-- WIJZIGING 2: Toon het aantal seizoenen als het bekend is. --> */}
                 {movie.media_type === 'tv' && seasonCount !== null && (
                     <p className="text-gray-400 text-sm">
                         {seasonCount} {seasonCount === 1 ? 'Seizoen' : 'Seizoenen'}
                     </p>
                 )}
-                
                 <p className="text-gray-400 text-sm mb-2">{movie.genre}</p>
-
                 {cast.length > 0 && (
                     <p className="text-xs text-gray-500 mb-4 truncate">
                         Met: {cast.map(actor => actor.name).join(', ')}
                     </p>
                 )}
-             
                 {availability.status !== 'idle' && (
                     <div className="mb-4 min-h-[50px]">
                         {availability.status === 'loading' && <p className="text-xs text-gray-400">Zoeken...</p>}
-                        {availability.status === 'streaming' && (
-                            <div>
-                                <p className="text-xs text-gray-400 mb-1">Te zien op:</p>
-                                <div className="flex flex-wrap gap-2">{availability.data.map(provider => (<img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />))}</div>
-                            </div>
-                        )}
+                        {availability.status === 'streaming' && (<div><p className="text-xs text-gray-400 mb-1">Te zien op:</p><div className="flex flex-wrap gap-2">{availability.data.map(provider => (<img key={provider.provider_id} src={`https://image.tmdb.org/t/p/w45${provider.logo_path}`} alt={provider.provider_name} title={provider.provider_name} className="w-8 h-8 rounded-md" />))}</div></div>)}
                         {availability.status === 'cinema' && (<div><p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p><p className="text-sm font-semibold">Draait (of draaide recent) in de bioscoop</p></div>)}
                         {availability.status === 'unavailable' && (<div><p className="text-xs text-gray-400 mb-1">Beschikbaarheid:</p><p className="text-sm font-semibold">Momenteel nergens te zien</p></div>)}
                     </div>
                 )}
-                
                 {isSeen && seenItem && (
                     <div className="my-2">
                         <p className="text-sm text-center text-gray-300 mb-1">Jouw cijfer:</p>
                         <StarRating rating={seenItem.userRating} onRate={onRateMovie} />
                     </div>
                 )}
-                
                 <div className="mt-auto pt-4 border-t border-gray-700">
                     {isSeen ? (
                         <button onClick={onRemoveFromSeen} className="w-full bg-red-600 text-white py-2 rounded-lg">Verwijder</button>
@@ -222,5 +201,4 @@ export const MovieCard: React.FC<MovieCardProps> = ({ movie }) => {
         </div>
     );
 };
-
 export default MovieCard;
