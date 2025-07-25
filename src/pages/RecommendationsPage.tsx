@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
 import ReactSlider from 'react-slider';
+import 'react-slider/styles.css';
 
 const TMDB_API_KEY_REC = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 const movieGenreMap: { [key: string]: number } = { "Actie": 28, "Avontuur": 12, "Animatie": 16, "Komedie": 35, "Misdaad": 80, "Documentaire": 99, "Drama": 18, "Familie": 10751, "Fantasy": 14, "Geschiedenis": 36, "Horror": 27, "Muziek": 10402, "Mysterie": 9648, "Romantiek": 10749, "Sciencefiction": 878, "TV Film": 10770, "Thriller": 53, "Oorlog": 10752, "Western": 37 };
