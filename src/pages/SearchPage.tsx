@@ -6,7 +6,7 @@ const TMDB_API_KEY = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 const genreMap: { [key: number]: string } = { 28: "Actie", 12: "Avontuur", 16: "Animatie", 35: "Komedie", 80: "Misdaad", 99: "Documentaire", 18: "Drama", 10751: "Familie", 14: "Fantasy", 36: "Geschiedenis", 27: "Horror", 10402: "Muziek", 9648: "Mysterie", 10749: "Romantiek", 878: "Sciencefiction", 10770: "TV Film", 53: "Thriller", 10752: "Oorlog", 37: "Western", 10759: "Actie & Avontuur", 10762: "Kids", 10763: "Nieuws", 10764: "Reality", 10765: "Sci-Fi & Fantasy", 10766: "Soap", 10767: "Talk", 10768: "War & Politics" };
 
 const formatApiResults = (results: any[], media_type: 'movie' | 'tv'): MediaItem[] => {
-    return results.filter(item => item && item.poster_path && item.vote_count > 10).map(item => ({
+    return results.filter(item => item && item.poster_path && item.vote_count > 0).map(item => ({
         id: item.id, title: item.title || item.name, rating: item.vote_average.toFixed(1), poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`, genre: item.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend', overview: item.overview, media_type: media_type, release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
     }));
 };
