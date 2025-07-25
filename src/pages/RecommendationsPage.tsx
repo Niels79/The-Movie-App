@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
+import ReactSlider from 'react-slider';
 
 const TMDB_API_KEY_REC = "3223e3fb3a787e27ce5ca70cccbdb3bd";
 const movieGenreMap: { [key: string]: number } = { "Actie": 28, "Avontuur": 12, "Animatie": 16, "Komedie": 35, "Misdaad": 80, "Documentaire": 99, "Drama": 18, "Familie": 10751, "Fantasy": 14, "Geschiedenis": 36, "Horror": 27, "Muziek": 10402, "Mysterie": 9648, "Romantiek": 10749, "Sciencefiction": 878, "TV Film": 10770, "Thriller": 53, "Oorlog": 10752, "Western": 37 };
@@ -25,9 +26,8 @@ const RecommendationsPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
     const currentYear = new Date().getFullYear();
-    const [startYear, setStartYear] = useState(1970);
-    const [endYear, setEndYear] = useState(currentYear);
     const [foundRecs, setFoundRecs] = useState<MediaItem[]>([]);
+    const [years, setYears] = useState([1970, currentYear]);
 
     useEffect(() => {
         setSelectedGenres([]);
@@ -43,6 +43,8 @@ const RecommendationsPage: React.FC = () => {
     const findRecommendations = async () => {
         setIsLoading(true);
         setFoundRecs([]);
+        const startYear = years[0];
+        const endYear = years[1];
         
         const DESIRED_RESULTS = 16;
         
@@ -166,15 +168,23 @@ const RecommendationsPage: React.FC = () => {
                 </div>
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">2. Selecteer Periode</h3>
-                    <div className="flex items-center max-w-lg mx-auto mb-4">
-                        <span className="w-16 text-right mr-4">Vanaf:</span>
-                        <input type="range" min="1950" max={endYear} value={startYear} onChange={e => setStartYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{startYear}</span>
-                    </div>
-                    <div className="flex items-center max-w-lg mx-auto">
-                        <span className="w-16 text-right mr-4">Tot:</span>
-                        <input type="range" min={startYear} max={currentYear} value={endYear} onChange={e => setEndYear(parseInt(e.target.value))} className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" />
-                        <span className="ml-4 text-2xl font-bold text-yellow-400 w-24 text-center">{endYear}</span>
+                    <div className="max-w-xl mx-auto px-4">
+                        <div className="flex justify-between items-center text-2xl font-bold text-yellow-400 mb-2">
+                            <span>{years[0]}</span>
+                            <span>{years[1]}</span>
+                        </div>
+                        <ReactSlider
+                            className="horizontal-slider"
+                            thumbClassName="thumb"
+                            trackClassName="track"
+                            value={years}
+                            onChange={setYears}
+                            min={1950}
+                            max={currentYear}
+                            ariaLabel={['Start jaar', 'Eind jaar']}
+                            pearling
+                            minDistance={1}
+                        />
                     </div>
                 </div>
                 
