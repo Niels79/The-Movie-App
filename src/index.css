@@ -1,4 +1,4 @@
-@import 'react-slider/dist/slider.css';
+@import 'react-slider/styles.css';
 
 @tailwind base;
 @tailwind components;
