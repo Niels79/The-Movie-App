@@ -81,47 +81,50 @@ const SearchPage: React.FC = () => {
         setIsLoading(false);
     };
 
+    // --- WIJZIGING START ---
     const itemsToShow = useMemo(() => {
         const notInterestedIds = new Set(userData.notInterestedList?.filter(i => i).map(i => i.id));
         const seenIds = new Set(userData.seenList?.filter(i => i?.movie).map(i => i.movie.id));
         const watchlistIds = new Set(userData.watchlist?.filter(i => i).map(i => i.id));
         const excludedIds = new Set([...seenIds, ...watchlistIds, ...notInterestedIds]);
 
-        // <-- WIJZIGING: Vertaal de genrevoorkeuren als we naar series kijken.
+        // Bepaal of er een actieve zoekopdracht is.
+        const isActivelySearching = activeSearchTerm.trim() !== '';
+
+        // Vertaal de genrevoorkeuren voor series.
         let preferredGenres = userData.preferences?.genres || [];
         if (mediaType === 'tv' && preferredGenres.length > 0) {
-            const translationMap: { [movieGenre: string]: string } = {
-                'Actie': 'Actie & Avontuur',
-                'Avontuur': 'Actie & Avontuur',
-                'Sciencefiction': 'Sci-Fi & Fantasy',
-                'Fantasy': 'Sci-Fi & Fantasy',
-                'Oorlog': 'War & Politics',
-                'Familie': 'Kids',
-            };
-            // Gebruik een Set om dubbele waarden te voorkomen (bv. Actie en Avontuur worden beide 'Actie & Avontuur')
+            const translationMap: { [movieGenre: string]: string } = { 'Actie': 'Actie & Avontuur', 'Avontuur': 'Actie & Avontuur', 'Sciencefiction': 'Sci-Fi & Fantasy', 'Fantasy': 'Sci-Fi & Fantasy', 'Oorlog': 'War & Politics', 'Familie': 'Kids', };
             const tvPreferences = new Set<string>();
             preferredGenres.forEach(g => tvPreferences.add(translationMap[g] || g));
             preferredGenres = [...tvPreferences];
         }
-        // EINDE WIJZIGING
 
         return items.filter(item => {
+            // Filter altijd items die op een lijst staan (gezien, kijklijst, niet geïnteresseerd).
             if (!item || excludedIds.has(item.id)) {
                 return false;
             }
 
+            // ALS er een actieve zoekopdracht is, sla de genre-check dan over.
+            if (isActivelySearching) {
+                return true;
+            }
+
+            // ALS er geen zoekopdracht is, pas dan de voorkeursgenre-filter toe.
             if (preferredGenres.length > 0) {
                 const itemGenres = item.genre.split(', ').filter(g => g);
-                if (itemGenres.length === 0) return true; // Of false, afhankelijk van de wens
-                
-                // Gebruik de (mogelijk vertaalde) voorkeuren voor de check
-                const matchesAllPrefs = itemGenres.every(genre => preferredGenres.includes(genre));
-                if (!matchesAllPrefs) return false;
+                if (itemGenres.length === 0) return true; 
+
+                // Toon het item als het MINSTENS ÉÉN van de voorkeursgenres heeft.
+                const hasAtLeastOnePreferredGenre = itemGenres.some(genre => preferredGenres.includes(genre));
+                if (!hasAtLeastOnePreferredGenre) return false;
             }
             
             return true;
         });
-    }, [items, userData, mediaType]); // <-- WIJZIGING: mediaType toegevoegd als dependency
+    }, [items, userData, mediaType, activeSearchTerm]); // activeSearchTerm is toegevoegd als dependency
+    // --- WIJZIGING EIND ---
 
     return (
         <div>
@@ -141,4 +144,5 @@ const SearchPage: React.FC = () => {
         </div>
     );
 };
+
 export default SearchPage;
