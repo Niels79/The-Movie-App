@@ -18,6 +18,18 @@ const formatApiResults = (results: any[], media_type: 'movie' | 'tv'): MediaItem
         release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
     }));
 };
+const formatDiscoverResults = (results: any[], media_type: 'movie' | 'tv'): MediaItem[] => {
+    return results.filter(item => item && item.poster_path).map(item => ({
+        id: item.id,
+        title: item.title || item.name,
+        rating: item.vote_average.toFixed(1),
+        poster: `https://image.tmdb.org/t/p/w500${item.poster_path}`,
+        genre: item.genre_ids.map((id: number) => genreMap[id]).filter(Boolean).join(', ') || 'Onbekend',
+        overview: item.overview,
+        media_type: item.media_type || media_type,
+        release_year: (item.release_date || item.first_air_date || "N/A").substring(0, 4),
+    }));
+};
 
 const SearchPage: React.FC = () => {
     const { userData, mediaType } = useAuth();
@@ -57,62 +69,72 @@ const SearchPage: React.FC = () => {
         }
     }, [items, page, hasMore, activeSearchTerm, mediaType, actorSearchId]);
 
-    const fetchPopular = async () => {
-        setIsLoading(true);
-        const apiUrl = `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
-        try {
-            const res = await fetch(apiUrl);
-            const data = await res.json();
-            setItems(formatApiResults(data.results || [], mediaType));
-            setPage(1);
-            setHasMore(data.page < data.total_pages);
-            setActorSearchId(null); // Zorg dat we niet in acteur-modus zijn
-        } catch (error) { console.error("Fout bij ophalen populaire items:", error); }
-        setIsLoading(false);
-    };
+const fetchPopular = async () => {
+    setIsLoading(true);
+    const apiUrl = `https://api.themoviedb.org/3/${mediaType}/popular?api_key=${TMDB_API_KEY}&language=en-US&page=1`;
+    try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+        
+        // CORRECTIE: Gebruik hier 'data' en de originele, strengere 'formatApiResults'
+        setItems(formatApiResults(data.results || [], mediaType));
+        
+        setPage(1);
+        setHasMore(data.page < data.total_pages);
+        setActorSearchId(null); // Zorg dat we niet in acteur-modus zijn
+    } catch (error) { console.error("Fout bij ophalen populaire items:", error); }
+    setIsLoading(false);
+};
 
     // --- DEZE FUNCTIE IS NU DE 'INTELLIGENTE' ORCHESTRATOR ---
-    const handleSearch = async () => {
-        if (!searchTerm.trim()) {
-            fetchPopular(); // Als de zoekbalk leeg is, haal populaire items op
-            setActiveSearchTerm('');
-            return;
+const handleSearch = async () => {
+    if (!searchTerm.trim()) {
+        fetchPopular();
+        setActiveSearchTerm('');
+        return;
+    }
+
+    setIsLoading(true);
+    setActiveSearchTerm(searchTerm);
+    setActorSearchId(null); 
+    
+    // Stap 1: Voer een multi-search uit
+    const multiSearchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerm)}&language=en-US&page=1`;
+    
+    try {
+        const multiRes = await fetch(multiSearchUrl);
+        const multiData = await multiRes.json();
+        const topResult = multiData.results?.[0];
+
+        // Stap 2: Controleer of het topresultaat een persoon is
+        if (topResult && topResult.media_type === 'person' && topResult.popularity > 15) {
+            // Als het een acteur is, haal de films van die acteur op
+            const personId = topResult.id;
+            setActorSearchId(personId);
+            const discoverUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY}&with_cast=${personId}&language=en-US&page=1&sort_by=popularity.desc`;
+            
+            const discoverRes = await fetch(discoverUrl);
+            // 'discoverData' wordt hier aangemaakt en is alleen hier binnen geldig
+            const discoverData = await discoverRes.json();
+            
+            // Gebruik de nieuwe, soepele formatter
+            setItems(formatDiscoverResults(discoverData.results || [], mediaType));
+            
+            setPage(1);
+            setHasMore(discoverData.page < discoverData.total_pages);
+        } else {
+            // Als het geen acteur is, verwerk de normale film/serie resultaten
+            const movieTvResults = (multiData.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv');
+            setItems(formatApiResults(movieTvResults, mediaType));
+            setPage(1);
+            setHasMore(multiData.page < multiData.total_pages);
         }
-
-        setIsLoading(true);
-        setActiveSearchTerm(searchTerm);
-        setActorSearchId(null); // Reset acteur-zoekmodus
-        
-        // Stap 1: Voer een multi-search uit om te zien of de gebruiker een acteur bedoelt
-        const multiSearchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerm)}&language=en-US&page=1`;
-        try {
-            const multiRes = await fetch(multiSearchUrl);
-            const multiData = await multiRes.json();
-            const topResult = multiData.results?.[0];
-
-            // Stap 2: Controleer of het topresultaat een persoon is
-            if (topResult && topResult.media_type === 'person' && topResult.popularity > 15) {
-                // Aanname: de gebruiker zocht naar deze acteur. Haal films van deze acteur op.
-                const personId = topResult.id;
-                setActorSearchId(personId); // Activeer acteur-zoekmodus
-                const discoverUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY}&with_cast=${personId}&language=en-US&page=1&sort_by=popularity.desc`;
-                const discoverRes = await fetch(discoverUrl);
-                const discoverData = await discoverRes.json();
-                
-                setItems(formatApiResults(discoverData.results || [], mediaType));
-                setPage(1);
-                setHasMore(discoverData.page < discoverData.total_pages);
-            } else {
-                // De gebruiker zocht waarschijnlijk naar een film/serie titel. Filter personen eruit.
-                const movieTvResults = (multiData.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv');
-                setItems(formatApiResults(movieTvResults, mediaType));
-                setPage(1);
-                setHasMore(multiData.page < multiData.total_pages);
-            }
-        } catch (error) { console.error("Fout bij het zoeken:", error); }
-        
-        setIsLoading(false);
-    };
+    } catch (error) { 
+        console.error("Fout bij het zoeken:", error); 
+    }
+    
+    setIsLoading(false);
+};
 
     // --- DEZE FUNCTIE IS AANGEPAST OM TE WERKEN MET ACTEUR-ZOEKMODUS ---
     const handleLoadMore = async () => {
