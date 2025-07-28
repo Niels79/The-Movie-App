@@ -98,7 +98,6 @@ const handleSearch = async () => {
     setActiveSearchTerm(searchTerm);
     setActorSearchId(null); 
     
-    // Stap 1: Voer een multi-search uit
     const multiSearchUrl = `https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(searchTerm)}&language=en-US&page=1`;
     
     try {
@@ -106,24 +105,21 @@ const handleSearch = async () => {
         const multiData = await multiRes.json();
         const topResult = multiData.results?.[0];
 
-        // Stap 2: Controleer of het topresultaat een persoon is
+        // --- HIER IS DE WIJZIGING ---
+        // De check op 'popularity > 15' is verwijderd voor betrouwbaarheid
         if (topResult && topResult.media_type === 'person') {
-            // Als het een acteur is, haal de films van die acteur op
             const personId = topResult.id;
             setActorSearchId(personId);
             const discoverUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY}&with_cast=${personId}&language=en-US&page=1&sort_by=popularity.desc`;
             
             const discoverRes = await fetch(discoverUrl);
-            // 'discoverData' wordt hier aangemaakt en is alleen hier binnen geldig
             const discoverData = await discoverRes.json();
             
-            // Gebruik de nieuwe, soepele formatter
             setItems(formatDiscoverResults(discoverData.results || [], mediaType));
             
             setPage(1);
             setHasMore(discoverData.page < discoverData.total_pages);
         } else {
-            // Als het geen acteur is, verwerk de normale film/serie resultaten
             const movieTvResults = (multiData.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv');
             setItems(formatApiResults(movieTvResults, mediaType));
             setPage(1);
