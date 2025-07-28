@@ -105,21 +105,29 @@ const handleSearch = async () => {
         const multiData = await multiRes.json();
         const topResult = multiData.results?.[0];
 
-        // --- HIER IS DE WIJZIGING ---
-        // De check op 'popularity > 15' is verwijderd voor betrouwbaarheid
         if (topResult && topResult.media_type === 'person') {
+            // Acteur gevonden! Gebruik nu het 'credits' eindpunt voor een complete lijst.
             const personId = topResult.id;
-            setActorSearchId(personId);
-            const discoverUrl = `https://api.themoviedb.org/3/discover/${mediaType}?api_key=${TMDB_API_KEY}&with_cast=${personId}&language=en-US&page=1&sort_by=popularity.desc`;
+            setActorSearchId(personId); // We onthouden de acteur voor de 'Laad Meer' logica (al is die hier niet nodig)
+
+            // Bepaal of we film- of tv-credits moeten ophalen
+            const creditsEndpoint = mediaType === 'movie' ? 'movie_credits' : 'tv_credits';
+            const creditsUrl = `https://api.themoviedb.org/3/person/${personId}/${creditsEndpoint}?api_key=${TMDB_API_KEY}&language=en-US`;
             
-            const discoverRes = await fetch(discoverUrl);
-            const discoverData = await discoverRes.json();
+            const creditsRes = await fetch(creditsUrl);
+            const creditsData = await creditsRes.json();
             
-            setItems(formatDiscoverResults(discoverData.results || [], mediaType));
+            // De resultaten staan in 'cast'. Sorteer deze op populariteit.
+            const sortedResults = (creditsData.cast || []).sort((a: any, b: any) => b.popularity - a.popularity);
+
+            setItems(formatDiscoverResults(sortedResults, mediaType));
             
+            // Omdat we de volledige lijst in één keer krijgen, is er geen 'volgende pagina'.
             setPage(1);
-            setHasMore(discoverData.page < discoverData.total_pages);
+            setHasMore(false);
+
         } else {
+            // Geen acteur gevonden, doe een normale zoekopdracht naar films/series.
             const movieTvResults = (multiData.results || []).filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv');
             setItems(formatApiResults(movieTvResults, mediaType));
             setPage(1);
