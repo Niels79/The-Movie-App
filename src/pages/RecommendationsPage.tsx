@@ -1,3 +1,5 @@
+// FILE: src/pages/RecommendationsPage.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth, type MediaItem, type SeenMovie } from '../context/AuthContext';
 import { MovieCard } from '../components/MovieCard';
