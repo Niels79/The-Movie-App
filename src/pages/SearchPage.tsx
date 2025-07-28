@@ -107,7 +107,7 @@ const handleSearch = async () => {
         const topResult = multiData.results?.[0];
 
         // Stap 2: Controleer of het topresultaat een persoon is
-        if (topResult && topResult.media_type === 'person' && topResult.popularity > 15) {
+        if (topResult && topResult.media_type === 'person') {
             // Als het een acteur is, haal de films van die acteur op
             const personId = topResult.id;
             setActorSearchId(personId);
